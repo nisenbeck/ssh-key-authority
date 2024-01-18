@@ -4,8 +4,6 @@ require('core.php');
 ob_start();
 set_exception_handler('exception_handler');
 
-// Work out where we are on the server
-$base_path = dirname(__FILE__);
 $base_url = dirname($_SERVER['SCRIPT_NAME']);
 $request_url = $_SERVER['REQUEST_URI'];
 $isSecure = false;

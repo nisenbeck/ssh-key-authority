@@ -68,7 +68,7 @@ Installation
 
 6.  Set `scripts/cron.php` to run on a regular cron job.
 
-7.  Generate an SSH key pair to synchronize with. SSH Key Authority will expect to find the files as `config/keys-sync` and `config/keys-sync.pub` for the private and public keys respectively.
+7.  Generate an SSH key pair to synchronize with. SSH Key Authority will expect to find the files as `config/keys-sync` and `config/keys-sync.pub` for the private and public keys respectively. The key must be in `pem` format.
 
 8.  Install the SSH key synchronization daemon. 
 

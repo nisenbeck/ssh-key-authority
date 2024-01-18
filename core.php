@@ -1,5 +1,6 @@
 <?php
-chdir(dirname(__FILE__));
+$base_path = dirname(__FILE__);
+chdir($base_path);
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('UTC');
 set_error_handler('exception_error_handler');
@@ -49,7 +50,7 @@ function autoload_model($classname) {
 
 // Setup database connection and models
 function setup_database() {
-	global $config, $database, $driver, $pubkey_dir, $user_dir, $group_dir, $server_dir, $server_account_dir, $event_dir, $sync_request_dir;
+	global $config, $database, $driver, $migration_dir, $pubkey_dir, $user_dir, $group_dir, $server_dir, $server_account_dir, $event_dir, $sync_request_dir;
 	try {
 		$database = new mysqli($config['database']['hostname'], $config['database']['username'], $config['database']['password'], $config['database']['database'], $config['database']['port']);
 	} catch(ErrorException $e) {
@@ -83,7 +84,11 @@ function path_join() {
 		$parts = array_merge($parts, explode("/", $arg));
 	}
 	$parts = array_filter($parts, function($x) {return (bool)($x);});
-	$prefix = $args[0][0] == "/" ? "/" : "";
+	if (isset($args[0][0])) {
+		$prefix = $args[0][0] == "/" ? "/" : "";
+	} else {
+		$prefix = "";
+	}
 	return $prefix . implode("/", $parts);
 }
 
@@ -98,6 +103,7 @@ define('ESC_NONE', 9);
 * @param integer $escaping method of escaping to use
 */
 function out($string, $escaping = ESC_HTML) {
+	if(is_null($string)) return '';
 	switch($escaping) {
 	case ESC_HTML:
 		echo htmlspecialchars($string);
@@ -140,7 +146,7 @@ function outurl($url) {
  * @return string HTML-escaped string
  */
 function hesc($string) {
-	return htmlspecialchars($string);
+	return htmlspecialchars($string ?? '');
 }
 
 function english_list($array) {
