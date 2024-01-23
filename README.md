@@ -36,14 +36,14 @@ All data on this demonstration server is reset nightly at 00:00 UTC.
 Requirements
 ------------
 
-* Apache 2.2 or higher
-* PHP 5.6 or higher
+* Apache 2.4
+* PHP 7.4 or higher
 * PHP JSON extension
 * PHP LDAP extension
 * PHP XML extension
 * PHP mbstring (Multibyte String) extension
 * PHP MySQL extension
-* MySQL (5.5+), Percona Server (5.5+) or MariaDB database
+* MySQL (5.7, 8.0) or MariaDB database
 
 Installation
 ------------
