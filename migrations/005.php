@@ -4,7 +4,7 @@ $migration_name = 'Add key deprication to public key';
 // Removing duplicates
 $this->database->query("
 UPDATE `public_key` SET `fingerprint_sha256` = null where `fingerprint_sha256` IN (
-    SELECT `fingerprint_sha256` FROM `public_key` GROUP BY `fingerprint_sha256` HAVING COUNT(*) > 1
+    SELECT `fingerprint_sha256` FROM (SELECT * FROM `public_key`) AS t GROUP BY `fingerprint_sha256` HAVING COUNT(*) > 1
 )
 ");
 
