@@ -237,7 +237,7 @@ class Math_BigInteger
      * ?>
      * </code>
      *
-     * @param $x base-10 number or base-$base number if $base set.
+     * @param int|string|resource $x base-10 number or base-$base number if $base set.
      * @param int $base
      * @return Math_BigInteger
      * @access public
@@ -258,24 +258,27 @@ class Math_BigInteger
         }
 
         if (extension_loaded('openssl') && !defined('MATH_BIGINTEGER_OPENSSL_DISABLE') && !defined('MATH_BIGINTEGER_OPENSSL_ENABLED')) {
-            // some versions of XAMPP have mismatched versions of OpenSSL which causes it not to work
-            ob_start();
-            @phpinfo();
-            $content = ob_get_contents();
-            ob_end_clean();
-
-            preg_match_all('#OpenSSL (Header|Library) Version(.*)#im', $content, $matches);
-
             $versions = array();
-            if (!empty($matches[1])) {
-                for ($i = 0; $i < count($matches[1]); $i++) {
-                    $fullVersion = trim(str_replace('=>', '', strip_tags($matches[2][$i])));
 
-                    // Remove letter part in OpenSSL version
-                    if (!preg_match('/(\d+\.\d+\.\d+)/i', $fullVersion, $m)) {
-                        $versions[$matches[1][$i]] = $fullVersion;
-                    } else {
-                        $versions[$matches[1][$i]] = $m[0];
+            if (function_exists('phpinfo')) {
+                // some versions of XAMPP have mismatched versions of OpenSSL which causes it not to work
+                ob_start();
+                @phpinfo();
+                $content = ob_get_contents();
+                ob_end_clean();
+
+                preg_match_all('#OpenSSL (Header|Library) Version(.*)#im', $content, $matches);
+
+                if (!empty($matches[1])) {
+                    for ($i = 0; $i < count($matches[1]); $i++) {
+                        $fullVersion = trim(str_replace('=>', '', strip_tags($matches[2][$i])));
+
+                        // Remove letter part in OpenSSL version
+                        if (!preg_match('/(\d+\.\d+\.\d+)/i', $fullVersion, $m)) {
+                            $versions[$matches[1][$i]] = $fullVersion;
+                        } else {
+                            $versions[$matches[1][$i]] = $m[0];
+                        }
                     }
                 }
             }
@@ -368,7 +371,7 @@ class Math_BigInteger
                         break;
                     case MATH_BIGINTEGER_MODE_BCMATH:
                         // round $len to the nearest 4 (thanks, DavidMJ!)
-                        $len = (strlen($x) + 3) & 0xFFFFFFFC;
+                        $len = (strlen($x) + 3) & ~3;
 
                         $x = str_pad($x, $len, chr(0), STR_PAD_LEFT);
 
@@ -404,7 +407,7 @@ class Math_BigInteger
                     $x = substr($x, 1);
                 }
 
-                $x = preg_replace('#^(?:0x)?([A-Fa-f0-9]*).*#', '$1', $x);
+                $x = preg_replace('#^(?:0x)?([A-Fa-f0-9]*).*#s', '$1', $x);
 
                 $is_negative = false;
                 if ($base < 0 && hexdec($x[0]) >= 8) {
@@ -440,7 +443,7 @@ class Math_BigInteger
                 // (?<!^)(?:-).*: find any -'s that aren't at the beginning and then any characters that follow that
                 // (?<=^|-)0*: find any 0's that are preceded by the start of the string or by a - (ie. octals)
                 // [^-0-9].*: find any non-numeric characters and then any characters that follow that
-                $x = preg_replace('#(?<!^)(?:-).*|(?<=^|-)0*|[^-0-9].*#', '', $x);
+                $x = preg_replace('#(?<!^)(?:-).*|(?<=^|-)0*|[^-0-9].*#s', '', $x);
                 if (!strlen($x) || $x == '-') {
                     $x = '0';
                 }
@@ -482,7 +485,7 @@ class Math_BigInteger
                     $x = substr($x, 1);
                 }
 
-                $x = preg_replace('#^([01]*).*#', '$1', $x);
+                $x = preg_replace('#^([01]*).*#s', '$1', $x);
                 $x = str_pad($x, strlen($x) + (3 * strlen($x)) % 4, 0, STR_PAD_LEFT);
 
                 $str = '0x';
@@ -556,7 +559,7 @@ class Math_BigInteger
                 $bytes = chr(0);
             }
 
-            if (ord($bytes[0]) & 0x80) {
+            if ($this->precision <= 0 && (ord($bytes[0]) & 0x80)) {
                 $bytes = chr(0) . $bytes;
             }
 
@@ -673,11 +676,11 @@ class Math_BigInteger
     {
         $hex = $this->toHex($twos_compliment);
         $bits = '';
-        for ($i = strlen($hex) - 8, $start = strlen($hex) & 7; $i >= $start; $i-=8) {
-            $bits = str_pad(decbin(hexdec(substr($hex, $i, 8))), 32, '0', STR_PAD_LEFT) . $bits;
+        for ($i = strlen($hex) - 6, $start = strlen($hex) % 6; $i >= $start; $i-=6) {
+            $bits = str_pad(decbin(hexdec(substr($hex, $i, 6))), 24, '0', STR_PAD_LEFT) . $bits;
         }
         if ($start) { // hexdec('') == 0
-            $bits = str_pad(decbin(hexdec(substr($hex, 0, $start))), 8, '0', STR_PAD_LEFT) . $bits;
+            $bits = str_pad(decbin(hexdec(substr($hex, 0, $start))), 8 * $start, '0', STR_PAD_LEFT) . $bits;
         }
         $result = $this->precision > 0 ? substr($bits, -$this->precision) : ltrim($bits, '0');
 
@@ -724,6 +727,7 @@ class Math_BigInteger
         }
 
         $temp = $this->copy();
+        $temp->bitmask = false;
         $temp->is_negative = false;
 
         $divisor = new Math_BigInteger();
@@ -860,7 +864,7 @@ class Math_BigInteger
             $opts[] = 'OpenSSL';
         }
         if (!empty($opts)) {
-            $engine.= ' (' . implode($opts, ', ') . ')';
+            $engine.= ' (' . implode('.', $opts) . ')';
         }
         return array(
             'value' => '0x' . $this->toHex(true),
@@ -1586,7 +1590,9 @@ class Math_BigInteger
             $temp_value = array($quotient_value[$q_index]);
             $temp = $temp->multiply($y);
             $temp_value = &$temp->value;
-            $temp_value = array_merge($adjust, $temp_value);
+            if (count($temp_value)) {
+                $temp_value = array_merge($adjust, $temp_value);
+            }
 
             $x = $x->subtract($temp);
 
@@ -2018,7 +2024,7 @@ class Math_BigInteger
      *
      * @see self::_slidingWindow()
      * @access private
-     * @param Math_BigInteger
+     * @param Math_BigInteger $n
      * @return Math_BigInteger
      */
     function _mod2($n)
@@ -3133,7 +3139,7 @@ class Math_BigInteger
      *
      * Byte length is equal to $length. Uses crypt_random if it's loaded and mt_rand if it's not.
      *
-     * @param int $length
+     * @param int $size
      * @return Math_BigInteger
      * @access private
      */
@@ -3600,7 +3606,7 @@ class Math_BigInteger
      *
      * Removes leading zeros and truncates (if necessary) to maintain the appropriate precision
      *
-     * @param Math_BigInteger
+     * @param Math_BigInteger $result
      * @return Math_BigInteger
      * @see self::_trim()
      * @access private
@@ -3613,7 +3619,14 @@ class Math_BigInteger
         switch (MATH_BIGINTEGER_MODE) {
             case MATH_BIGINTEGER_MODE_GMP:
                 if ($this->bitmask !== false) {
+                    $flip = gmp_cmp($result->value, gmp_init(0)) < 0;
+                    if ($flip) {
+                        $result->value = gmp_neg($result->value);
+                    }
                     $result->value = gmp_and($result->value, $result->bitmask->value);
+                    if ($flip) {
+                        $result->value = gmp_neg($result->value);
+                    }
                 }
 
                 return $result;
@@ -3628,6 +3641,7 @@ class Math_BigInteger
         $value = &$result->value;
 
         if (!count($value)) {
+            $result->is_negative = false;
             return $result;
         }
 
@@ -3669,8 +3683,8 @@ class Math_BigInteger
     /**
      * Array Repeat
      *
-     * @param $input Array
-     * @param $multiplier mixed
+     * @param array $input
+     * @param mixed $multiplier
      * @return array
      * @access private
      */
@@ -3684,8 +3698,8 @@ class Math_BigInteger
      *
      * Shifts binary strings $shift bits, essentially multiplying by 2**$shift.
      *
-     * @param $x String
-     * @param $shift Integer
+     * @param string $x (by reference)
+     * @param int $shift
      * @return string
      * @access private
      */
@@ -3713,8 +3727,8 @@ class Math_BigInteger
      *
      * Shifts binary strings $shift bits, essentially dividing by 2**$shift and returning the remainder.
      *
-     * @param $x String
-     * @param $shift Integer
+     * @param string $x (by referenc)
+     * @param int $shift
      * @return string
      * @access private
      */

@@ -371,7 +371,7 @@ class Net_SSH1
      * @var array
      * @access private
      */
-    var $protocol_flag_log = array();
+    var $protocol_flags_log = array();
 
     /**
      * Message Log
@@ -417,6 +417,18 @@ class Net_SSH1
      * @access private
      */
     var $interactiveBuffer = '';
+
+    /**
+     * Current log size
+     *
+     * Should never exceed self::LOG_MAX_SIZE
+     *
+     * @see self::_send_binary_packet()
+     * @see self::_get_binary_packet()
+     * @var int
+     * @access private
+     */
+    var $log_size;
 
     /**
      * Timeout
@@ -857,6 +869,7 @@ class Net_SSH1
      * @see self::interactiveRead()
      * @see self::interactiveWrite()
      * @param string $cmd
+     * @param bool $block
      * @return mixed
      * @access public
      */
@@ -1169,6 +1182,9 @@ class Net_SSH1
 
         while ($length > 0) {
             $temp = fread($this->fsock, $length);
+            if (strlen($temp) != $length) {
+                return false;
+            }
             $raw.= $temp;
             $length-= strlen($temp);
         }
@@ -1431,7 +1447,6 @@ class Net_SSH1
      * named constants from it, using the value as the name of the constant and the index as the value of the constant.
      * If any of the constants that would be defined already exists, none of the constants will be defined.
      *
-     * @param array $array
      * @access private
      */
     function _define_array()
@@ -1464,7 +1479,7 @@ class Net_SSH1
 
         switch (NET_SSH1_LOGGING) {
             case NET_SSH1_LOG_SIMPLE:
-                return $this->message_number_log;
+                return $this->protocol_flags_log;
                 break;
             case NET_SSH1_LOG_COMPLEX:
                 return $this->_format_log($this->message_log, $this->protocol_flags_log);
@@ -1630,7 +1645,8 @@ class Net_SSH1
      *
      * Makes sure that only the last 1MB worth of packets will be logged
      *
-     * @param string $data
+     * @param int $protocol_flags
+     * @param string $message
      * @access private
      */
     function _append_log($protocol_flags, $message)
