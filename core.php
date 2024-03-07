@@ -21,6 +21,11 @@ require('ldap.php');
 require('email.php');
 
 if ($config['ldap']['enabled'] == 1) {
+	if (isset($config['ldap']['verify_ldap_cert'])) {
+		if ($config['ldap']['verify_ldap_cert'] == 0) {
+			putenv('LDAPTLS_REQCERT=never');
+		}
+	}
 	$ldap_options = array();
 	$ldap_options[LDAP_OPT_PROTOCOL_VERSION] = 3;
 	$ldap_options[LDAP_OPT_REFERRALS] = !empty($config['ldap']['follow_referrals']);
