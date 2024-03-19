@@ -157,7 +157,7 @@ $security_config = $this->get('security_config');
 				<p>If SSH Key Authority is reporting "Key directory does not exist" for your server, then Stage 1 is required.</p>
 				<ol>
 					<li>Create keys-sync account: <code>adduser --system --disabled-password --home /var/local/keys-sync --shell /bin/sh keys-sync</code>
-					<li>Change the permissions of <code>/var/local/keys-sync</code> to 711: <code>chmod 0711 /var/local/keys-sync</code>
+					<li>Change the permissions of /var/local/keys-sync to 711: <code>chmod 0711 /var/local/keys-sync</code>
 					<li>Create <code>/var/local/keys-sync/keys-sync</code> file (owned by keys-sync, permissions 0644) with the following SSH key in it:
 						<pre><?php out($this->get('keys-sync-pubkey'))?></pre>
 					</li>
@@ -172,8 +172,8 @@ $security_config = $this->get('security_config');
 					<li>
 						Reconfigure SSH (<code>/etc/ssh/sshd_config</code>) to use:
 						<ul>
-							<li>"<code>AuthorizedKeysFile /var/local/keys-sync/%u</code>"
-							<li>"<code>StrictModes no</code>"
+							<li><code>AuthorizedKeysFile /var/local/keys-sync/%u</code>
+							<li><code>StrictModes no</code>
 						</ul>
 					<li>Restart SSH server
 				</ol>
