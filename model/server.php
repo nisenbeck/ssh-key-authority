@@ -23,7 +23,7 @@ class Server extends Record {
 
 		$text = "KeysScope=\"server:{$this->hostname}\" KeysRequester=\"{$this->active_user->uid}\"";
 		foreach($details as $key => $value) {
-			$text .= ' Keys'.ucfirst($key).'="'.str_replace('"', '', $value).'"';
+			$text .= ' Keys'.ucfirst($key).'="'.str_replace('"', '',(string) $value).'"';
 		}
 		openlog('keys', LOG_ODELAY, LOG_AUTH);
 		syslog($level, $text);
