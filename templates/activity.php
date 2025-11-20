@@ -1,9 +1,9 @@
 <h1>Activity</h1>
-<table class="table">
-	<col></col>
-	<col></col>
-	<col></col>
-	<col class="date"></col>
+<table class="table table-searchable">
+	<col>
+	<col>
+	<col>
+	<col class="date">
 	<thead>
 		<tr>
 			<th>Entity</th>

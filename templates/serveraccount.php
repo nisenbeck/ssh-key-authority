@@ -187,7 +187,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 			<div class="row">
 				<div class="form-group col-md-2">
 					<div class="input-group">
-						<span class="input-group-addon"><label for="account"<span class="glyphicon glyphicon-log-in" title="Server account"></span><span class="sr-only">Account name</span></label></span>
+						<span class="input-group-addon"><label for="account"><span class="glyphicon glyphicon-log-in" title="Server account"></span><span class="sr-only">Account name</span></label></span>
 						<input type="text" id="account" name="account" class="form-control" placeholder="Account name" required>
 					</div>
 				</div>
@@ -521,11 +521,11 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 	</div>
 	<div class="tab-pane fade" id="log">
 		<h2 class="sr-only">Log</h2>
-		<table class="table">
-			<col></col>
-			<col></col>
-			<col></col>
-			<col class="date"></col>
+		<table class="table table-searchable">
+			<col>
+			<col>
+			<col>
+			<col class="date">
 			<thead>
 				<tr>
 					<th>Entity</th>

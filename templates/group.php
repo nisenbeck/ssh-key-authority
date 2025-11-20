@@ -376,7 +376,7 @@ foreach($this->get('group_members') as $member) {
 	<?php } ?>
 	<div class="tab-pane fade" id="log">
 		<h2 class="sr-only">Log</h2>
-		<table class="table">
+		<table class="table table-searchable">
 			<thead>
 				<tr>
 					<th>Entity</th>

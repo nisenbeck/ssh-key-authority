@@ -38,7 +38,7 @@
 	</div>
 </div>
 <p><?php $total = count($this->get('pubkeys')); out(number_format($total).' public key'.($total == 1 ? '' : 's').' found')?></p>
-<table class="table table-striped">
+<table class="table table-striped table-searchable">
 	<thead>
 		<tr>
 			<th class="fingerprint">Fingerprint</th>

@@ -12,7 +12,7 @@
 	<div class="tab-pane fade<?php if(!$this->get('admin')) out(' in active') ?>" id="list">
 		<h2 class="sr-only">User list</h2>
 		<p><?php $total = count($this->get('users')); out(number_format($total).' user'.($total == 1 ? '' : 's').' found')?></p>
-		<table class="table table-hover table-condensed">
+		<table class="table table-hover table-condensed table-searchable">
 			<thead>
 				<tr>
 					<th>Username</th>
