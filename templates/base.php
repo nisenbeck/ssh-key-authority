@@ -8,7 +8,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php out($this->get('title'))?></title>
 <link rel="stylesheet" href="<?php outurl('/bootstrap/css/bootstrap.min.css')?>">
-<link rel="stylesheet" href="<?php outurl('/data_tables/dataTables.dataTables.css')?>">
+<link rel="stylesheet" href="<?php outurl('/data_tables/datatables.min.css')?>">
 <link rel="stylesheet" href="<?php outurl('/style.css?'.filemtime('public_html/style.css'))?>">
 <link rel="icon" href="<?php outurl('/key.png')?>">
 <script src="<?php outurl('/header.js?'.filemtime('public_html/header.js'))?>"></script>
@@ -73,5 +73,5 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
 </div>
 <script src="<?php outurl('/jquery/jquery-3.7.1.min.js')?>"></script>
 <script src="<?php outurl('/bootstrap/js/bootstrap.min.js')?>"></script>
-<script src="<?php outurl('/data_tables/dataTables.js')?>"></script>
+<script src="<?php outurl('/data_tables/datatables.min.js')?>"></script>
 <script src="<?php outurl('/extra.js?'.filemtime('public_html/extra.js'))?>"></script>
