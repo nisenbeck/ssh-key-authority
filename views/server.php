@@ -96,6 +96,7 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 		$server->hostname = $hostname;
 		$server->port = $_POST['port'];
 		if($_POST['rsa_key_fingerprint'] == '') $server->rsa_key_fingerprint = null;
+		if($_POST['ip_address'] == '') $server->ip_address = null;
 		$server->key_management = $_POST['key_management'];
 		$server->authorization = $_POST['authorization'];
 		try {
@@ -111,6 +112,7 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 	}
 } elseif(isset($_POST['edit_server']) && $server_admin && $server_admin_can_reset_host_key) {
 	if($_POST['rsa_key_fingerprint'] == '') $server->rsa_key_fingerprint = null;
+	if($_POST['ip_address'] == '') $server->ip_address = null;
 	$server->update();
 	redirect('#settings');
 } elseif(isset($_POST['request_access'])) {

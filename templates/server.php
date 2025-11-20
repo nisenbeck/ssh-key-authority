@@ -261,6 +261,15 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<label for="ip_address" class="col-sm-2 control-label">Host IP address</label>
+				<div class="col-sm-4">
+					<input type="text" id="ip_address" name="ip_address" value="<?php out($this->get('server')->ip_address)?>" readonly class="form-control">
+				</div>
+				<div class="col-sm-6">
+					<button type="button" class="btn btn-default" data-clear="ip_address">Clear</button>
+				</div>
+			</div>
+			<div class="form-group">
 				<label class="col-sm-2 control-label">Key management</label>
 				<div class="col-sm-10">
 					<div class="radio">
@@ -401,6 +410,15 @@
 				</div>
 				<div class="col-sm-6">
 					<button type="button" class="btn btn-default" data-clear="rsa_key_fingerprint">Clear</button>
+				</div>
+			</div>
+			<div class="form-group">
+				<label for="ip_address" class="col-sm-2 control-label">Host IP address</label>
+				<div class="col-sm-4">
+					<input type="text" id="ip_address" name="ip_address" value="<?php out($this->get('server')->ip_address)?>" readonly class="form-control">
+				</div>
+				<div class="col-sm-6">
+					<button type="button" class="btn btn-default" data-clear="ip_address">Clear</button>
 				</div>
 			</div>
 			<div class="form-group">
