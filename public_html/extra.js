@@ -419,3 +419,88 @@ $(function() {
 		}
 	});
 });
+
+$(document).ready(function() {
+    // Check if DataTables is available
+    if (!$.fn.DataTable && !$.fn.dataTable) {
+        console.info('DataTables not loaded - tables will remain as standard HTML');
+        return;
+    }
+
+    // Disable DataTables warnings
+    if ($.fn.dataTable && $.fn.dataTable.ext) {
+        $.fn.dataTable.ext.errMode = 'none';
+    }
+
+    $('.table').each(function() {
+        var $table = $(this);
+
+        // Skip if already initialized
+        if ($.fn.DataTable.isDataTable(this)) {
+            return;
+        }
+
+        // Skip if no thead present
+        if ($table.find('thead').length === 0) {
+            console.info('DataTables skipped: no thead found');
+            return;
+        }
+
+        // Skip if tbody is empty or not present
+        if ($table.find('tbody tr').length === 0) {
+            console.info('DataTables skipped: no data rows');
+            return;
+        }
+
+        // Check if table uses rowspan/colspan (except in thead)
+        var hasComplexStructure = false;
+        $table.find('tbody tr').each(function() {
+            if ($(this).find('td[rowspan], td[colspan]').length > 0) {
+                hasComplexStructure = true;
+                return false; // break
+            }
+        });
+
+        if (hasComplexStructure) {
+            console.info('DataTables skipped: table contains rowspan/colspan');
+            return;
+        }
+
+        // Check for inconsistent column count
+        var thead_cols = $table.find('thead tr:first th').length;
+        var inconsistent = false;
+        $table.find('tbody tr').each(function() {
+            var td_count = $(this).find('td').length;
+            if (td_count > 0 && td_count !== thead_cols) {
+                inconsistent = true;
+                return false; // break
+            }
+        });
+
+        if (inconsistent) {
+            console.info('DataTables skipped: inconsistent column count');
+            return;
+        }
+
+        try {
+            var isSearchable = $table.hasClass('table-searchable');
+            $table.DataTable({
+                "paging": false,
+                "info": false,
+                "searching": isSearchable,
+                "order": [[0, "asc"]],
+                "columnDefs": [{
+                    "targets": "_all",
+                    "orderSequence": ["asc", "desc"],
+                    "defaultContent": ""
+                }],
+                "autoWidth": false,
+                "retrieve": true
+            });
+        } catch (e) {
+            console.warn('DataTables initialization failed:', e.message);
+            // On error: remove DataTable classes if present
+            $table.removeClass('dataTable');
+        }
+    });
+});
