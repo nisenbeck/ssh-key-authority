@@ -6,7 +6,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
 <!DOCTYPE html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?php out($this->get('title'))?></title>
+<title>SSH Key Authority - <?php out($this->get('title'))?></title>
 <link rel="stylesheet" href="<?php outurl('/bootstrap/css/bootstrap.min.css')?>">
 <link rel="stylesheet" href="<?php outurl('/data_tables/datatables.min.css')?>">
 <link rel="stylesheet" href="<?php outurl('/style.css?'.filemtime('public_html/style.css'))?>">
