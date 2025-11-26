@@ -1,0 +1,13 @@
+services:
+  ska:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ska
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config:/ska/config:ro
+      - ./config/apache.conf:/etc/apache2/sites-available/ska.conf:ro
+    restart: unless-stopped
+    tty: true

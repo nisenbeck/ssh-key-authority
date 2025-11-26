@@ -1,2 +1,2 @@
-0 1 * * * /ska/scripts/cron.php
-*/1 * * * * /bin/ash -c "PID=$(cat /var/run/keys/keys-sync.pid) && [ -n ${PID} -a -d /proc/${PID} ] || /ska/scripts/syncd.php --user keys-sync"
+*/5 *   * * * /ska/scripts/cron.php
+*/1 *   * * * /bin/bash -c 'PID=$(cat /var/run/keys/keys-sync.pid 2>/dev/null) && [ -n "$PID" ] && [ -d "/proc/$PID" ] || /ska/scripts/syncd.php --user keys-sync'
