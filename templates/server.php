@@ -253,19 +253,20 @@
 			</div>
 			<div class="form-group">
 				<label for="rsa_key_fingerprint" class="col-sm-2 control-label">Host key fingerprint</label>
-				<div class="col-sm-4">
-					<input type="text" id="rsa_key_fingerprint" name="rsa_key_fingerprint" value="<?php out($this->get('server')->rsa_key_fingerprint)?>" readonly class="form-control">
+				<div class="col-sm-5">
+					<input type="text" id="rsa_key_fingerprint" name="rsa_key_fingerprint" value="<?php out($this->get('server')->rsa_key_fingerprint)?>" readonly class="form-control"
+						style="text-overflow: ellipsis; position: relative;" onfocus="this.style.width=this.scrollWidth+30+'px'; this.style.zIndex='100'" onblur="this.style.width=''; this.style.zIndex=''">
 				</div>
-				<div class="col-sm-6">
+				<div class="col-sm-5">
 					<button type="button" class="btn btn-default" data-clear="rsa_key_fingerprint">Clear</button>
 				</div>
 			</div>
 			<div class="form-group">
 				<label for="ip_address" class="col-sm-2 control-label">Host IP address</label>
-				<div class="col-sm-4">
+				<div class="col-sm-5">
 					<input type="text" id="ip_address" name="ip_address" value="<?php out($this->get('server')->ip_address)?>" readonly class="form-control">
 				</div>
-				<div class="col-sm-6">
+				<div class="col-sm-5">
 					<button type="button" class="btn btn-default" data-clear="ip_address">Clear</button>
 				</div>
 			</div>
