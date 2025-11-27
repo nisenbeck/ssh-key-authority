@@ -64,7 +64,7 @@ class PublicKey extends Record {
 		$file = fopen($filename, 'w');
 		fwrite($file, $this->export());
 		fclose($file);
-		exec('/usr/bin/ssh-keygen -lf '.escapeshellarg($filename).' 2>/dev/null', $output);
+		exec('/usr/bin/env ssh-keygen -lf '.escapeshellarg($filename).' 2>/dev/null', $output);
 		unlink($filename);
 		if(count($output) == 1 && preg_match('|^([0-9]+) .* \(([A-Z0-9]+)\)$|', $output[0], $matches)) {
 			$this->keysize = intval($matches[1]);
