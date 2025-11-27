@@ -1,12 +1,12 @@
 #!/usr/bin/env php
 <?php
-set_include_path(get_include_path() . PATH_SEPARATOR . 'scripts/phpseclib');
 chdir(__DIR__);
+require '../vendor/autoload.php';
 require('../core.php');
 require('sync-common.php');
-include('Crypt/RSA.php');
-require('Net/SSH2.php');
-require('Net/SCP.php');
+use phpseclib3\Net\SSH2;
+use phpseclib3\Net\SFTP;
+use phpseclib3\Crypt\PublicKeyLoader;
 
 $required_files = array('config/keys-sync', 'config/keys-sync.pub');
 foreach($required_files as $file) {
@@ -97,19 +97,21 @@ foreach($servers as $server) {
 }
 
 $password = "";
+$key = null;
 if(!$no_password) {
-	$key = new Crypt_RSA();
 	try {
 		$key_content = file_get_contents('config/keys-sync');
 	} catch(ErrorException $e) {
 		echo date('c')." Unable to load keyfile\n";
 		exit(1);
 	}
-	
+
 	$success = false;
 	try {
-		$success = $key->loadKey($key_content);
-	} catch(ErrorException $e) {}
+		$key = PublicKeyLoader::load($key_content);
+		$success = true;
+	} catch(\Exception $e) {}
+
 	if(!$success) {
 		if(!$no_password) {
 			try {
@@ -117,9 +119,9 @@ if(!$no_password) {
 				system('stty -echo 2> /dev/null');
 				$password = rtrim(fgets(STDIN), "\n\r\0");
 				system('stty echo 2> /dev/null');
-				$key->setPassword($password);
-				$success = $key->loadKey($key_content);
-			} catch(ErrorException $e) {}
+				$key = PublicKeyLoader::load($key_content, $password);
+				$success = true;
+			} catch(\Exception $e) {}
 		}
 		if(!$success) {
 			echo date('c')." Invalid Key or Password\n";
@@ -279,7 +281,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 		}
 	}
 
-	$key = new Crypt_RSA();
+	$key = null;
 	try {
 		$key_content = file_get_contents('config/keys-sync');
 	} catch(ErrorException $e) {
@@ -292,8 +294,10 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 
 	$success = false;
 	try {
-		$success = $key->loadKey($key_content);
-	} catch(ErrorException $e) {}
+		$key = PublicKeyLoader::load($key_content);
+		$success = true;
+	} catch(\Exception $e) {}
+
 	if(!$success) {
 		if(!$no_password) {
 			try {
@@ -301,9 +305,9 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				system('stty -echo 2> /dev/null');
 				$password = rtrim(fgets(STDIN), "\n\r\0");
 				system('stty echo 2> /dev/null');
-				$key->setPassword($password);
-				$success = $key->loadKey($key_content);
-			} catch(ErrorException $e) {}
+				$key = PublicKeyLoader::load($key_content, $password);
+				$success = true;
+			} catch(\Exception $e) {}
 		}
 		if(!$success) {
 			echo date('c')." {$hostname}: Public key authentication failed. Invalid Key or Password\n";
@@ -316,33 +320,31 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 
 	echo date('c')." {$hostname}: Attempting to connect.\n";
 	$legacy = false;
-	$attempts = array('keys-sync', 'root');
-	foreach($attempts as $attempt) {
-		try {
-			$ssh = new Net_SSH2($hostname, $server->port);
-			$scp = new Net_SCP($ssh);
-			$ssh->enableQuietMode();
-			$ssh->_connect();
-		} catch(Exception $e) {
-			echo date('c')." {$hostname}: Failed to connect.\n".$e;
-			$server->sync_report('sync failure', 'SSH connection failed');
-			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
-			return;
+	$sftp = null;
+	try {
+		$ssh_check = new SSH2($hostname, $server->port);
+		$ssh_check->setTimeout(60);
+
+		// Verifying Host Key
+		// phpseclib 3 uses standard SSH fingerprinting (SHA256 of the full decoded key)
+		$hostkeyRaw = $ssh_check->getServerPublicHostKey();
+		if (!is_string($hostkeyRaw)) {
+			throw new Exception("Unable to extract host key");
 		}
 
-		try {
-			$hostkey = substr($ssh->getServerPublicHostKey(), 8);
-			$hostkey = md5($hostkey);
-			$fingerprint = strtoupper($hostkey);
-		} catch(Exception $e) {
-			echo date('c')." {$hostname}: Unable to parse host key.\n";
-			$server->sync_report('sync failure', 'SSH host key not supported');
-			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
-			return;
+		$parts = explode(' ', $hostkeyRaw, 3);
+		if (count($parts) < 2) {
+			throw new Exception("Unexpected host key format");
 		}
-		
+
+		// Standard SSH-Fingerprint: SHA256 of the full Base64-decoded key
+		// This matches the format of: ssh-keygen -l -E sha256
+		$keyData = base64_decode($parts[1]);
+		if ($keyData === false) {
+			throw new Exception("Unable to decode host key");
+		}
+		$fingerprint = strtoupper(hash('sha256', $keyData));
+
 		if(is_null($server->rsa_key_fingerprint)) {
 			$server->rsa_key_fingerprint = $fingerprint;
 			$server->update();
@@ -355,6 +357,8 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				return;
 			}
 		}
+
+		// Host Key Collision Protection
 		if(!isset($config['security']) || !isset($config['security']['host_key_collision_protection']) || $config['security']['host_key_collision_protection'] == 1) {
 			$matching_servers = $server_dir->list_servers(array(), array('rsa_key_fingerprint' => $server->rsa_key_fingerprint, 'key_management' => array('keys')));
 			if(count($matching_servers) > 1) {
@@ -365,21 +369,78 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				return;
 			}
 		}
-		try {
-			if ($ssh->login($attempt, $key)) {
-				echo date('c')." {$hostname}: Logged in as $attempt.\n";
-				break;
-			}
-		} catch(ErrorException $e) {}
-		$legacy = true;
-		if($attempt == 'root') {
-			echo date('c')." {$hostname}: Public key authentication failed.\n";
-			$server->sync_report('sync failure', 'SSH authentication failed');
-			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
-			return;
-		}
+	} catch(Exception $e) {
+		echo date('c')." {$hostname}: Failed to verify host key.\n".$e->getMessage()."\n";
+		$server->sync_report('sync failure', 'SSH host key verification failed');
+		$server->delete_all_sync_requests();
+		report_all_accounts_failed($keyfiles);
+		return;
 	}
+
+	// Close the checking connection
+	$ssh_check->disconnect();
+	unset($ssh_check);
+
+	// Stored fingerprint for comparison on second connection
+	$expected_fingerprint = $fingerprint;
+
+	// Login with SFTP (SFTP extends SSH2, so only one connection is needed)
+	$attempts = array('keys-sync', 'root');
+	foreach($attempts as $attempt) {
+		try {
+			$sftp = new SFTP($hostname, $server->port);
+			$sftp->enableQuietMode();
+			$sftp->setTimeout(60);
+
+			// Verify host key of the second connection BEFORE login
+			$hostkeyRaw2 = $sftp->getServerPublicHostKey();
+			if (is_string($hostkeyRaw2)) {
+				$parts2 = explode(' ', $hostkeyRaw2, 3);
+				if (count($parts2) >= 2) {
+					$keyData2 = base64_decode($parts2[1]);
+					if ($keyData2 !== false) {
+						$fingerprint2 = strtoupper(hash('sha256', $keyData2));
+						if (strcmp($expected_fingerprint, $fingerprint2) !== 0) {
+							echo date('c')." {$hostname}: Host key mismatch on second connection (possible MITM).\n";
+							$server->sync_report('sync failure', 'Host key mismatch on second connection');
+							$server->delete_all_sync_requests();
+							report_all_accounts_failed($keyfiles);
+							return;
+						}
+					}
+				}
+			}
+
+			if (!$sftp->login($attempt, $key)) {
+				if($attempt == 'root') {
+					echo date('c')." {$hostname}: Public key authentication failed.\n";
+					$server->sync_report('sync failure', 'SSH authentication failed');
+					$server->delete_all_sync_requests();
+					report_all_accounts_failed($keyfiles);
+					return;
+				}
+				$legacy = true; // keys-sync login failed, try root next
+				continue;
+			}
+
+			echo date('c')." {$hostname}: Logged in as $attempt.\n";
+			break;
+
+		} catch(Exception $e) {
+			echo date('c')." {$hostname}: Connection or authentication error.\n".$e->getMessage()."\n";
+			if($attempt == 'root') {
+				$server->sync_report('sync failure', 'SSH connection/authentication failed');
+				$server->delete_all_sync_requests();
+				report_all_accounts_failed($keyfiles);
+				return;
+			}
+		}
+
+		$legacy = true;
+	}
+
+	// $sftp is used from here on for both SSH commands (exec) and SFTP (put)
+	$ssh = $sftp;
 	$ssh->exec('/usr/bin/env test -d ' . $keydir);
 	if(!is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0) {
 		$dir = true;
@@ -405,7 +466,6 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 		if($config['security']['hostname_verification'] >= 2) {
 			// 2+ = Compare with /var/local/keys-sync/.hostnames
 			$allowed_hostnames = explode("\n", trim($ssh->exec('/usr/bin/env cat /var/local/keys-sync/.hostnames')));
-			echo implode("|",$allowed_hostnames);
 			if(is_bool($ssh->getExitStatus()) || $ssh->getExitStatus() != 0) {
 				if($config['security']['hostname_verification'] >= 3) {
 					// 3+ = Abort if file does not exist
@@ -422,7 +482,6 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 		if(is_null($allowed_hostnames)) {
 			try {
 				$allowed_hostnames = array(trim($ssh->exec('/usr/bin/env hostname -f')));
-				echo implode("|",$allowed_hostnames);
 			} catch(ErrorException $e) {
 				echo date('c')." {$hostname}: Cannot execute hostname -f.\n";
 				$server->sync_report('sync failure', 'Cannot execute hostname -f');
@@ -451,10 +510,9 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			fclose($fh);
 			$ssh->exec('/usr/bin/env mkdir -p '.escapeshellarg('/root/.ssh'));
 			if(!is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0) {
-				if ($scp->put('/root/.ssh/authorized_keys2', $local_filename, NET_SCP_LOCAL_FILE)) {
+				if ($sftp->put('/root/.ssh/authorized_keys2', $local_filename, SFTP::SOURCE_LOCAL_FILE)) {
 					$ssh->exec('/usr/bin/env chmod 600 '.escapeshellarg('/root/.ssh/authorized_keys2'));
 					if(!is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0) {
-						unlink($local_filename);
 						if(isset($keyfile['account'])) {
 							$keyfile['account']->sync_report('sync success');
 						}
@@ -462,6 +520,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 					}
 				}
 			}
+			unlink($local_filename);
 		} catch(ErrorException $e) {}
 		if(!$success) {
 			echo date('c')." {$hostname}: Sync command execution failed for legacy root.\n";
@@ -474,8 +533,8 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 
 	// New sync
 	if($dir) {
-		try {		
-			$success = false;			
+		try {
+			$success = false;
 			$entries = explode("\n", $ssh->exec('/usr/bin/env sha1sum '.escapeshellarg($keydir).'/*'));
 			$sha1sums = array();
 			if(!is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0) {
@@ -521,7 +580,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 							$fh = fopen($local_filename, 'w');
 							fwrite($fh, $keyfile['keyfile']);
 							fclose($fh);
-							$success = $scp->put($remote_filename, $local_filename, NET_SCP_LOCAL_FILE);
+							$success = $sftp->put($remote_filename, $local_filename, SFTP::SOURCE_LOCAL_FILE);
 							if(!$success) {
 								echo "Unable to transfer file using scp";
 							}
@@ -540,9 +599,9 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 								}
 							}
 							if($success) {
-								unlink($local_filename);
 								echo date('c')." {$hostname}: Updated {$username}\n";
 							}
+							unlink($local_filename);
 						}
 						if(isset($sha1sums[$username])) {
 							unset($sha1sums[$username]);
@@ -609,6 +668,12 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 	} else {
 		$server->sync_report('sync success', 'Synced successfully');
 	}
+
+	// Close the sftp connection
+	if($sftp) {
+		$sftp->disconnect();
+	}
+
 	echo date('c')." {$hostname}: Sync finished\n";
 }
 
