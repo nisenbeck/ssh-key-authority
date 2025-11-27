@@ -16,7 +16,7 @@ class PublicKey extends Record {
 	* @param bool $force if true, enable the use of lower security keys
 	* @throws InvalidArgumentException if the public key cannot be parsed or is not sufficiently secure
 	*/
-	public function import($key, $uid = null, $force = false) {
+	public function import($key, ?string $uid = null, $force = false) {
 		global $config;
 		// Remove newlines (often included by accident) and trim
 		$key = str_replace(array("\r", "\n"), array(), trim($key));

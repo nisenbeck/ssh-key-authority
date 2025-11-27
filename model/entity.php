@@ -185,7 +185,7 @@ abstract class Entity extends Record {
 	* @param string|null $hostname to filter for in the destination rules for each key
 	* @return array of PublicKey objects
 	*/
-	public function list_public_keys($account_name = null, $hostname = null) {
+	public function list_public_keys(?string $account_name = null, ?string $hostname = null) {
 		if(is_null($this->entity_id)) throw new BadMethodCallException('Entity must be in directory before public keys can be listed');
 		$stmt = $this->database->prepare("
 			SELECT public_key.*, COUNT(public_key_dest_rule.id) AS dest_rule_count

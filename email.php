@@ -17,23 +17,23 @@ class Email {
 		$this->signature = $config['web']['baseurl']."\nYour friendly SSH key management system";
 	}
 
-	public function add_recipient($email, $name = null) {
+	public function add_recipient($email, ?string $name = null) {
 		$this->to[] = array('email' => $email, 'name' => $name);
 	}
 
-	public function add_cc($email, $name = null) {
+	public function add_cc($email, ?string $name = null) {
 		$this->cc[] = array('email' => $email, 'name' => $name);
 	}
 
-	public function add_bcc($email, $name = null) {
+	public function add_bcc($email, ?string $name = null) {
 		$this->bcc[] = array('email' => $email, 'name' => $name);
 	}
 
-	public function add_reply_to($email, $name = null) {
+	public function add_reply_to($email, ?string $name = null) {
 		$this->reply_to[] = array('email' => $email, 'name' => $name);
 	}
 
-	public function set_from($email, $name = null) {
+	public function set_from($email, ?string $name = null) {
 		$this->from = array('email' => $email, 'name' => $name);
 		$this->gpg_sign = false;
 	}
