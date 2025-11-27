@@ -1,0 +1,20 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+LICENSE
+NOTICE
+README.md
+*.md
+
+# Composer
+composer.*
+
+# Examples and Services
+examples/
+services/
+
+# Docker Configuration
+docker/config/
+.dockerignore

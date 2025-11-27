@@ -1,6 +1,6 @@
 FROM php:8.4-apache-trixie
 
-COPY docker/config/apache.conf /etc/apache2/sites-available/ska.conf
+COPY docker/apache.conf /etc/apache2/sites-available/ska.conf
 RUN rm /etc/apache2/sites-enabled/*.conf && a2ensite ska.conf && a2enmod ldap authnz_ldap rewrite
 
 COPY docker/entrypoint.sh docker/healthcheck.sh /
