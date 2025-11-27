@@ -15,6 +15,7 @@ RUN set -eux; \
         libonig-dev \
         libxml2-dev \
         cron \
+        openssh-client \
     ; \
     # Configure and build LDAP and other required PHP extensions deterministically
     docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu; \
