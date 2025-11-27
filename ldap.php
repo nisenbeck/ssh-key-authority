@@ -30,14 +30,10 @@ class LDAP {
 		}
 	}
 
-	public function search($basedn, $filter, $fields = array(), $sort = array()) {
+	public function search($basedn, $filter, $fields = array()) {
 		if(is_null($this->conn)) $this->connect();
 		if(empty($fields)) $r = @ldap_search($this->conn, $basedn, $filter);
 		else $r = @ldap_search($this->conn, $basedn, $filter, $fields);
-		$sort = array_reverse($sort);
-		foreach($sort as $field) {
-			@ldap_sort($this->conn, $r, $field);
-		}
 		if($r) {
 			// Fetch entries
 			$result = @ldap_get_entries($this->conn, $r);
