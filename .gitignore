@@ -2,3 +2,10 @@ config/config.ini
 config/keys-sync
 config/keys-sync.pub
 extensions/*.php
+
+# Docker Configuration and Database
+/docker/config/config.ini
+/docker/config/keys-sync
+/docker/config/keys-sync.pub
+/docker/config/htpasswd
+/docker/db/

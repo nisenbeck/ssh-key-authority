@@ -11,10 +11,10 @@ README.md
 # Composer
 composer.*
 
-# Examples and Services
-examples/
+# Services
 services/
 
 # Docker Configuration
 docker/config/
+docker/db/
 .dockerignore

@@ -4,6 +4,9 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: ska
+    depends_on:
+      ska-db:
+        condition: service_healthy
     ports:
       - "8080:80"
     volumes:
@@ -11,3 +14,26 @@ services:
       - ./config/apache.conf:/etc/apache2/sites-available/ska.conf:ro
     restart: unless-stopped
     tty: true
+    networks:
+      - ska_net
+  ska-db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+    - MYSQL_ROOT_PASSWORD=root-password
+    - MYSQL_DATABASE=ska-db
+    - MYSQL_USER=ska-user
+    - MYSQL_PASSWORD=password
+    volumes:
+      - ./db:/var/lib/mysql:rw
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ska_net
+
+networks:
+  ska_net:
