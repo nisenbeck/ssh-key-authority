@@ -21,31 +21,32 @@ Features
 * Introduce key depreciation to encouraging users to replace their public keys
 * Support for encrypted SSH Keys (does not work with the openssh format. Instead use a different one like `ssh-keygen -m PEM`)
 
-Demo
-----
-
-You can view the SSH Key Authority in action on the [demonstration server](https://ska.xiven.com/).
-
-Use one of the following sets of username / password credentials to log in:
-
-* testuser / testuser - normal user with admin access granted to a few servers
-* testadmin / testadmin - admin user
-
-All data on this demonstration server is reset nightly at 00:00 UTC.
-
 Requirements
 ------------
 
 * Apache 2.4
-* PHP 7.4 or higher
+* PHP 8.0 or higher
 * PHP JSON extension
 * PHP LDAP extension
 * PHP XML extension
 * PHP mbstring (Multibyte String) extension
 * PHP MySQL extension
-* MySQL (5.7, 8.0) or MariaDB database
+* MySQL (8.x) or MariaDB database
 
-Installation
+Docker Installation
+------------
+
+1. Clone the repo
+
+2. Copy the file `config/config-sample.ini` to `docker/config/config.ini` and edit the settings as required.
+
+3. Generate an SSH key pair to synchronize with. SSH Key Authority will expect to find the files as `docker/config/keys-sync` and `docker/config/keys-sync.pub` for the private and public keys respectively. The key must be in `pem` format.
+
+4. For the use without LDAP, generate a password for the keys-sync user: `htpasswd -c docker/config/htpasswd keys-sync`
+
+5. Navigate to the `docker` folder und start the container with `docker-compose up -d` or `docker compose up -d` depending on your version
+
+Manual Installation
 ------------
 
 1.  Clone the repo somewhere outside of your default Apache document root.
@@ -78,12 +79,6 @@ Installation
         2.  Modify `ExecStart` path and `User` as necessary. If SSH Key Authority is installed under `/home`, disable `ProtectHome`.
         3.  `systemctl daemon-reload`
         4.  `systemctl enable keys-sync.service`
-
-    * For sysv-init:
-
-        1.  Copy `services/init.d/keys-sync` to `/etc/init.d/`
-        2.  Modify `SCRIPT` path and `USER` as necessary.
-        3.  `update-rc.d keys-sync defaults`
 
     * Manual:
 
