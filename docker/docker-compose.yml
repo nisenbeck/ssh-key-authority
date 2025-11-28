@@ -12,7 +12,6 @@ services:
     volumes:
       - ./config:/ska/config:ro
       - ./config/apache.conf:/etc/apache2/sites-available/ska.conf:ro
-      - ../:/ska:ro
     restart: unless-stopped
     tty: true
     networks:
