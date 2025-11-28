@@ -6,6 +6,9 @@ date_default_timezone_set('UTC');
 set_error_handler('exception_error_handler');
 spl_autoload_register('autoload_model');
 
+// Load Composer autoloader
+require 'vendor/autoload.php';
+
 require('pagesection.php');
 
 $config_file = 'config/config.ini';

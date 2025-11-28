@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a
+class ComposerStaticInit64845ba0aa9d1ca658036ee1b0066583
 {
     public static $files = array (
         'decc78cc4436b1292c6c0d151b19445c' => __DIR__ . '/..' . '/phpseclib/phpseclib/phpseclib/bootstrap.php',
@@ -18,6 +18,7 @@ class ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a
         'P' => 
         array (
             'ParagonIE\\ConstantTime\\' => 23,
+            'PHPMailer\\PHPMailer\\' => 20,
         ),
     );
 
@@ -30,6 +31,10 @@ class ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a
         array (
             0 => __DIR__ . '/..' . '/paragonie/constant_time_encoding/src',
         ),
+        'PHPMailer\\PHPMailer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
+        ),
     );
 
     public static $classMap = array (
@@ -39,9 +44,9 @@ class ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit6b7a718f1b7b53a21b92507cfa57827a::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit64845ba0aa9d1ca658036ee1b0066583::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit64845ba0aa9d1ca658036ee1b0066583::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit64845ba0aa9d1ca658036ee1b0066583::$classMap;
 
         }, null, ClassLoader::class);
     }

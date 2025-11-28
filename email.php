@@ -1,4 +1,7 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 class Email {
 	public $from;
 	public $subject;
@@ -59,8 +62,8 @@ class Email {
 			$this->cc = array();
 			$this->bcc = array();
 		}
-		$this->headers[] = "MIME-Version: 1.0";
-		$this->headers[] = "Content-Transfer-Encoding: 8bit";
+
+		// Headers for auto-generated emails
 		$this->headers[] = "Auto-Submitted: auto-generated";
 		$this->headers[] = "Precedence: bulk";
 		$this->flow();
@@ -68,43 +71,98 @@ class Email {
 		if(function_exists('gnupg_init') && $this->gpg_sign && isset($config['gpg']['key_id'])) {
 			$this->sign();
 		}
-		if(is_null($this->from['name'])) {
-			$this->headers[] = "From: {$this->from['email']}";
-		} else {
-			$this->headers[] = "From: {$this->from['name']} <{$this->from['email']}>";
-		}
-		$to = array();
-		foreach($this->to as $rcpt) {
-			if(is_null($rcpt['name'])) {
-				$to[] = "$rcpt[email]";
-			} else {
-				$to[] = "$rcpt[name] <$rcpt[email]>";
-			}
-		}
-		if(count($this->reply_to) > 0) {
-			$header = 'Reply-To: ';
-			foreach($this->reply_to as $addr) {
-				if(is_null($addr['name'])) {
-					$header .= "$addr[email], ";
-				} else {
-					if(strrpos($header, "\n") === false) $indent = strlen($header);
-					else $indent = strlen($header) - strrpos($header, "\n") - 1;
-					$header .= $this->header_7bit_safe($addr['name'], $indent)." <$addr[email]>, ";
-				}
-			}
-			$this->headers[] = substr($header, 0, -2);
-		}
-		foreach(array('cc', 'bcc') as $rcpt_type) {
-			foreach($this->$rcpt_type as $rcpt) {
-				if(is_null($rcpt['name'])) {
-					$this->headers[] = ucfirst($rcpt_type).": $rcpt[email]";
-				} else {
-					$this->headers[] = ucfirst($rcpt_type).": ".$this->header_7bit_safe($rcpt['name'], strlen($rcpt_type) + 2)." <$rcpt[email]>";
-				}
-			}
-		}
+
 		if(!empty($config['email']['enabled'])) {
-			mail(implode(', ', $to), $this->header_7bit_safe($this->subject, 9), $this->body, implode("\n", $this->headers));
+			try {
+				$mailer = new PHPMailer(true);
+
+				// SMTP Configuration (Default: localhost:25 for backward compatibility)
+				$mailer->isSMTP();
+				$mailer->Host = $config['email']['smtp_host'] ?? 'localhost';
+				$mailer->Port = $config['email']['smtp_port'] ?? 25;
+
+				if(!empty($config['email']['smtp_auth'])) {
+					$mailer->SMTPAuth = true;
+					$mailer->Username = $config['email']['smtp_username'];
+					$mailer->Password = $config['email']['smtp_password'];
+				}
+
+				if(!empty($config['email']['smtp_encryption'])) {
+					$mailer->SMTPSecure = $config['email']['smtp_encryption']; // 'tls' oder 'ssl'
+				}
+
+				if(!empty($config['email']['smtp_debug'])) {
+					$mailer->SMTPDebug = $config['email']['smtp_debug']; // 0-4
+				}
+
+				// PHPMailer Encoding and Charset
+				$mailer->CharSet = PHPMailer::CHARSET_UTF8;
+				$mailer->Encoding = '8bit';
+
+				// Adjust XMailer header (default is "PHPMailer X.X.X")
+				$mailer->XMailer = 'SSH Key Authority';
+
+				// Message-ID with hostname from baseurl (prevents MID_BARE_IP spam score)
+				if(!empty($config['web']['baseurl'])) {
+					$parsed = parse_url($config['web']['baseurl']);
+					if(!empty($parsed['host'])) {
+						$mailer->Hostname = $parsed['host'];
+					}
+				}
+
+				// From
+				$mailer->setFrom($this->from['email'], $this->from['name'] ?? '');
+
+				// To
+				foreach($this->to as $rcpt) {
+					if(!empty($rcpt['email']) && filter_var($rcpt['email'], FILTER_VALIDATE_EMAIL)) {
+						$mailer->addAddress($rcpt['email'], $rcpt['name'] ?? '');
+					}
+				}
+
+				// CC
+				foreach($this->cc as $rcpt) {
+					if(!empty($rcpt['email']) && filter_var($rcpt['email'], FILTER_VALIDATE_EMAIL)) {
+						$mailer->addCC($rcpt['email'], $rcpt['name'] ?? '');
+					}
+				}
+
+				// BCC
+				foreach($this->bcc as $rcpt) {
+					if(!empty($rcpt['email']) && filter_var($rcpt['email'], FILTER_VALIDATE_EMAIL)) {
+						$mailer->addBCC($rcpt['email'], $rcpt['name'] ?? '');
+					}
+				}
+
+				// Reply-To
+				foreach($this->reply_to as $rcpt) {
+					if(!empty($rcpt['email']) && filter_var($rcpt['email'], FILTER_VALIDATE_EMAIL)) {
+						$mailer->addReplyTo($rcpt['email'], $rcpt['name'] ?? '');
+					}
+				}
+
+				// Custom Headers (filter out MIME/Content-Type headers as PHPMailer sets these)
+				foreach($this->headers as $header) {
+					// Skip headers that PHPMailer already sets
+					if(preg_match('/^(MIME-Version|Content-Type|Content-Transfer-Encoding):/i', $header)) {
+						continue;
+					}
+					if(preg_match('/^([^:]+):\s*(.*)$/', $header, $matches)) {
+						$mailer->addCustomHeader($matches[1], $matches[2]);
+					}
+				}
+
+				$mailer->Subject = $this->subject;
+				$mailer->Body = $this->body;
+
+				// Content-Type for format=flowed explicitly set
+				$mailer->ContentType = 'text/plain; format=flowed';
+
+				$mailer->send();
+			} catch (Exception $e) {
+				error_log("Email could not be sent. Error: {$mailer->ErrorInfo}");
+				throw new RuntimeException("Email sending failed: {$mailer->ErrorInfo}");
+			}
 		}
 	}
 
@@ -141,10 +199,10 @@ class Email {
 
 		$message = "$message\n\n";
 		$this->body = $message;
-		$this->headers[] = "Content-Type: text/plain; charset=utf-8; format=flowed";
 	}
 
 	private function header_7bit_safe($string, $indent = 0) {
+		// PHPMailer handles encoding automatically, this function is only needed for GPG signing
 		if(is_null($string)) return null;
 		return mb_encode_mimeheader($string, 'UTF-8', 'Q', "\n", $indent);
 	}
