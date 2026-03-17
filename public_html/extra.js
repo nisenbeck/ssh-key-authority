@@ -484,11 +484,13 @@ $(document).ready(function() {
 
         try {
             var isSearchable = $table.hasClass('table-searchable');
+            var orderAttr = $table.attr('data-order');
+            var order = orderAttr ? JSON.parse(orderAttr) : [[0, "asc"]];
             $table.DataTable({
                 "paging": false,
                 "info": false,
                 "searching": isSearchable,
-                "order": [[0, "asc"]],
+                "order": order,
                 "columnDefs": [{
                     "targets": "_all",
                     "orderSequence": ["asc", "desc"],

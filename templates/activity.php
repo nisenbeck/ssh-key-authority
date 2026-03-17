@@ -13,7 +13,7 @@
 		</div>
 	</form>
 </div>
-<table class="table table-searchable">
+<table class="table table-searchable" data-order='[[3, "desc"]]'>
 	<col>
 	<col>
 	<col>

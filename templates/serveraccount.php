@@ -521,7 +521,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 	</div>
 	<div class="tab-pane fade" id="log">
 		<h2 class="sr-only">Log</h2>
-		<table class="table table-searchable">
+		<table class="table table-searchable" data-order='[[3, "desc"]]'>
 			<col>
 			<col>
 			<col>
