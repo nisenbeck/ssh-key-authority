@@ -166,11 +166,19 @@ lookup_known_fingerprint() {
 
 # Fetch host keys via ssh-keyscan and find the one matching expected_fp (or TOFU the first key
 # if none pinned and --allow-unpinned-hostkey). Prints "keytype base64key", or nothing on failure.
+#
+# Explicitly request every host key type phpseclib3 (used by sync.php) may have negotiated and
+# pinned - it prefers ssh-ed25519/ecdsa-sha2-* over rsa despite the DB field being called
+# rsa_key_fingerprint - rather than relying on this machine's ssh-keyscan default type list,
+# which varies across OpenSSH versions/distros and is why this can fail on some systems but not
+# others for the exact same pinned fingerprint.
 find_trusted_host_key() {
 	local hostname="$1" port="$2" expected_fp="$3"
-	local keyscan_output
-	keyscan_output=$(ssh-keyscan -T "$TIMEOUT" -p "$port" "$hostname" 2>/dev/null)
+	local keyscan_output keyscan_err
+	keyscan_output=$(ssh-keyscan -T "$TIMEOUT" -t rsa,ecdsa,ed25519 -p "$port" "$hostname" 2>"$WORKDIR/keyscan.$$")
+	keyscan_err=$(cat "$WORKDIR/keyscan.$$" 2>/dev/null); rm -f "$WORKDIR/keyscan.$$"
 	if [ -z "$keyscan_output" ]; then
+		echo "ssh-keyscan got no host key from $hostname:$port within ${TIMEOUT}s (unreachable from this machine, wrong port, or timeout too low - try a higher --timeout)${keyscan_err:+: $keyscan_err}" >&2
 		return 1
 	fi
 	if [ -z "$expected_fp" ]; then
@@ -181,6 +189,7 @@ find_trusted_host_key() {
 		echo "$keyscan_output" | head -n1 | awk '{print $2, $3}'
 		return 0
 	fi
+	local found_summary=""
 	while IFS= read -r line; do
 		[ -z "$line" ] && continue
 		local b64 keytype fp
@@ -191,7 +200,9 @@ find_trusted_host_key() {
 			echo "$keytype $b64"
 			return 0
 		fi
+		found_summary="${found_summary}${keytype}=${fp} "
 	done <<<"$keyscan_output"
+	echo "no offered host key matched the pinned fingerprint (offered: ${found_summary% })" >&2
 	return 1
 }
 
@@ -379,7 +390,11 @@ if [ "$JOBS" -le 1 ]; then
 		process_host "$d" || failures=$((failures + 1))
 	done
 else
-	printf '%s\n' "${host_dirs[@]}" | xargs -P "$JOBS" -I{} bash -c 'process_host "$@"' _ {} || failures=1
+	# Each parallel job records its own failure line - xargs's own exit status only says
+	# "something failed", not how many, which would make the summary below misleading.
+	: > "$WORKDIR/parallel_failures"
+	printf '%s\n' "${host_dirs[@]}" | xargs -P "$JOBS" -I{} bash -c 'process_host "$1" || printf "%s\n" "$1" >> "$WORKDIR/parallel_failures"' _ {}
+	failures=$(wc -l < "$WORKDIR/parallel_failures")
 fi
 failures=$((failures + not_found))
 
