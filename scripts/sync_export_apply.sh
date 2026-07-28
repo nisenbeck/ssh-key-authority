@@ -24,6 +24,7 @@
 set -uo pipefail
 
 SCRIPT_NAME=$(basename "$0")
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)
 EXPORT_DIR=""
 IDENTITY=""
 REMOTE_USER="keys-sync"
@@ -37,9 +38,11 @@ TIMEOUT=5
 
 usage() {
 	cat <<EOF
-Usage: $SCRIPT_NAME --dir EXPORT_DIR --identity KEYFILE [OPTIONS]
+Usage: $SCRIPT_NAME --identity KEYFILE [OPTIONS]
 
-  --dir DIR              export directory produced by sync_export.php (required)
+  --dir DIR              export directory produced by sync_export.php (default: the
+                          directory this script itself resides in, so a bundled copy
+                          from the export tree works standalone)
   --identity FILE         SSH private key to authenticate as (required)
   --user NAME             remote user to log in as (default: keys-sync)
   --host HOSTNAMES        only process these hosts (comma-separated, matches the
@@ -83,8 +86,11 @@ while [ $# -gt 0 ]; do
 	esac
 done
 
-if [ -z "$EXPORT_DIR" ] || [ -z "$IDENTITY" ]; then
-	echo "Error: --dir and --identity are required" >&2
+if [ -z "$EXPORT_DIR" ]; then
+	EXPORT_DIR="$SCRIPT_DIR"
+fi
+if [ -z "$IDENTITY" ]; then
+	echo "Error: --identity is required" >&2
 	usage
 	exit 1
 fi

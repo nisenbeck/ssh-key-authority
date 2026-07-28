@@ -7,9 +7,10 @@
 * instead of connecting to the target servers - for hosts the SKA server can't reach directly.
 * Deliver the resulting tree with sync_export_apply.sh.
 *
-* Layout (relative to --dir): <hostname>/.ska-manifest.json (metadata) and <hostname>/<account>
-* (keyfile content, mode 0600) per host. A host's folder is the sole record of its inclusion -
-* delete a folder to exclude it from the next sync_export_apply.sh run.
+* Layout (relative to --dir): sync_export_apply.sh (bundled copy, so the exported tree is
+* self-contained), <hostname>/.ska-manifest.json (metadata) and <hostname>/<account> (keyfile
+* content, mode 0600) per host. A host's folder is the sole record of its inclusion - delete a
+* folder to exclude it from the next sync_export_apply.sh run.
 *
 * Read-only against the SKA database, so safe to run without network access to the servers.
 * Does not touch sync_status/sync_request - the next scripts/sync.php run reconciles that itself
@@ -69,6 +70,15 @@ if(!$preview) {
 	}
 	// Export tree contains sensitive account data, keep it private
 	chmod($export_dir, 0700);
+
+	// Bundle the apply script so the export tree is self-contained - copy it (with --identity
+	// FILE) to a host with network access and run it straight from there, no separate SKA
+	// checkout or --dir needed.
+	$apply_script_src = __DIR__.'/sync_export_apply.sh';
+	if(file_exists($apply_script_src)) {
+		copy($apply_script_src, "$export_dir/sync_export_apply.sh");
+		chmod("$export_dir/sync_export_apply.sh", 0700);
+	}
 }
 
 // Build list of servers to export
