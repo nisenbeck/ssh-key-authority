@@ -113,7 +113,10 @@ function keygen_help($box_position) {
 				<li>For RSA, enter "4096" as the number of bits in the generated key. For ECDSA, use either the nistp384 or nistp521 curve.
 				<li>Click the Generate button.
 				<li>Provide a comment for the key: This comment allows to identify your key. Best thing is to use your username or email address.
-				<li><strong>Provide a key passphrase.</strong>
+				<li>
+					<div class="alert alert-warning">
+						<span class="glyphicon glyphicon-warning-sign"></span> <strong>Important:</strong> Provide a key passphrase to protect your private key.
+					</div>
 				<li>Save the private key to your local machine.
 				<li>Select and copy the contents of the "Public key for pasting into OpenSSH authorized_keys file" section at the top of the window (scrollable, make sure to select all).
 				<?php if(!is_null($box_position)) { ?>
@@ -124,7 +127,7 @@ function keygen_help($box_position) {
 				<strong>Note:</strong> if you are not using PuTTY to connect, you may need to export your private key into OpenSSH format to use it. You can do this from the Conversions menu.
 			</div>
 			<div class="alert alert-info">
-				<strong>Note:</strong> if you are using Cygwin or MSYS bash, the instructions for Linux can be used instead.
+				<strong>Note:</strong> if you are using the Windows Subsystem for Linux (WSL), Cygwin or MSYS bash, the instructions for Linux can be used instead.
 			</div>
 		</div>
 		<div class="tab-pane fade" id="mac_instructions">
@@ -137,7 +140,10 @@ function keygen_help($box_position) {
 						<li>ecdsa: <code>ssh-keygen -t ecdsa -b 256 -C '<var>comment</var>'</code>
 						<li>ed25519: <code>ssh-keygen -t ed25519 -C '<var>comment</var>'</code>
 					</ul>
-				<li><strong>Make sure that you give the key a passphrase when prompted.</strong>
+				<li>
+					<div class="alert alert-warning">
+						<span class="glyphicon glyphicon-warning-sign"></span> <strong>Important:</strong> Make sure that you give the key a passphrase when prompted.
+					</div>
 				<li>A new text file will have been created in a <code>.ssh</code> directory. Copy the contents of one of the following files into your clipboard (depends on the algorithm you used).
 					<ul>
 						<li>rsa: <code>id_rsa.pub</code>
@@ -159,10 +165,10 @@ function keygen_help($box_position) {
 						<li>ecdsa: <code>ssh-keygen -t ecdsa -b 256 -C '<var>comment</var>'</code>
 						<li>ed25519: <code>ssh-keygen -t ed25519 -C '<var>comment</var>'</code>
 					</ul>
-					<div class="alert alert-info">
-						Note: if this command fails with a message of "ssh-keygen: command not found", you need to install the openssh-client package: <code>sudo apt-get install openssh-client</code> on Debian-based systems.
+				<li>
+					<div class="alert alert-warning">
+						<span class="glyphicon glyphicon-warning-sign"></span> <strong>Important:</strong> Make sure that you give the key a passphrase when prompted.
 					</div>
-				<li><strong>Make sure that you give the key a passphrase when prompted.</strong>
 				<li>A new text file will have been created in a <code>.ssh</code> directory. Copy the contents of one of the following files into your clipboard (depends on the algorithm you used).
 					<ul>
 						<li>rsa: <code>id_rsa.pub</code>
@@ -173,6 +179,9 @@ function keygen_help($box_position) {
 				<li>Paste the public key that you just copied into the box <?php out($box_position)?> and click the "Add public key" button.
 				<?php } ?>
 			</ol>
+			<div class="alert alert-info">
+				<strong>Note:</strong> if this command fails with a message of "ssh-keygen: command not found", you need to install the openssh-client package: <code>sudo apt-get install openssh-client</code> on Debian-based systems.
+			</div>
 		</div>
 	</div>
 	<?php
