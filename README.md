@@ -112,6 +112,15 @@ StrictModes must be disabled because the files will all be owned by the keys-syn
 
 The file `/var/local/keys-sync/keys-sync` must exist, with the same contents as the `config/keys-sync.pub` file in order for the synchronization daemon to authenticate.
 
+### Offline sync for network-segmented hosts
+
+If the SKA server cannot reach some servers directly over SSH, use `scripts/sync_export.php` to
+write the same authorized_keys files to a local directory tree instead of connecting to them,
+then copy that tree to a machine that does have network access and run
+`scripts/sync_export_apply.sh` there to deliver the files. See `--help` on either script for
+details. Once direct connectivity is restored, run `scripts/sync.php` against those hosts as
+usual to let SKA reconcile its recorded sync status.
+
 Screenshots
 -----------
 
