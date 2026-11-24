@@ -312,21 +312,28 @@ class User extends Entity {
 		$ldapusers = $this->ldap->search($config['ldap']['dn_user'], LDAP::escape($config['ldap']['user_id']).'='.LDAP::escape($this->uid), array_keys(array_flip($attributes)));
 		if($ldapuser = reset($ldapusers)) {
 			$this->auth_realm = 'LDAP';
-			$this->uid = $ldapuser[strtolower($config['ldap']['user_id'])];
-			$this->name = $ldapuser[strtolower($config['ldap']['user_name'])];
-			$this->email = $ldapuser[strtolower($config['ldap']['user_email'])];
+			$this->uid = self::ldap_attribute($ldapuser, $config['ldap']['user_id'], $this->uid);
+			// Optional attributes can be missing in LDAP. Use a fallback value instead of an error.
+			$this->name = self::ldap_attribute($ldapuser, $config['ldap']['user_name'], $this->uid);
+			$this->email = self::ldap_attribute($ldapuser, $config['ldap']['user_email'], '');
 			if(isset($config['ldap']['user_active'])) {
 				$this->active = 0;
+				$active_value = self::ldap_attribute($ldapuser, $config['ldap']['user_active'], null);
 				if(isset($config['ldap']['user_active_true'])) {
-					$this->active = intval($ldapuser[strtolower($config['ldap']['user_active'])] == $config['ldap']['user_active_true']);
+					$this->active = intval($active_value == $config['ldap']['user_active_true']);
 				} elseif(isset($config['ldap']['user_active_false'])) {
-					$this->active = intval($ldapuser[strtolower($config['ldap']['user_active'])] != $config['ldap']['user_active_false']);
+					$this->active = intval($active_value != $config['ldap']['user_active_false']);
 				}
 			} else {
 				$this->active = 1;
 			}
 			$this->admin = 0;
-			$group_member = $ldapuser[strtolower($config['ldap']['group_member_value'])];
+			$group_member = self::ldap_attribute($ldapuser, $config['ldap']['group_member_value'], null);
+			// Do not continue without group membership data. An empty group list would
+			// remove the user from all groups when full_group_sync is enabled.
+			if(is_null($group_member)) {
+				throw new RuntimeException("LDAP attribute {$config['ldap']['group_member_value']} is missing for user {$this->uid}");
+			}
 			$this->ldapgroups = $this->ldap->search($config['ldap']['dn_group'], LDAP::escape($config['ldap']['group_member']).'='.LDAP::escape($group_member), array('cn'));
 			foreach($this->ldapgroups as $ldapgroup) {
 				if($ldapgroup['cn'] == $config['ldap']['admin_group_cn']) $this->admin = 1;
@@ -334,6 +341,21 @@ class User extends Entity {
 		} else {
 			throw new UserNotFoundException('User does not exist.');
 		}
+	}
+
+	/**
+	* Get one attribute value from an LDAP entry that LDAP::search returned.
+	* @param array $entry LDAP entry with lowercase attribute names
+	* @param string $attribute name of the attribute
+	* @param mixed $default value to return if the attribute is missing
+	* @return mixed the attribute value; the first value if the attribute has more than one value
+	*/
+	private static function ldap_attribute($entry, $attribute, $default) {
+		$key = strtolower($attribute);
+		if(!isset($entry[$key])) return $default;
+		$value = $entry[$key];
+		if(is_array($value)) $value = reset($value);
+		return $value === false ? $default : $value;
 	}
 
 	/**
