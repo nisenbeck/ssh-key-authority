@@ -70,13 +70,13 @@ if(isset($router->view)) {
 				if(file_exists("/var/run/keys/keys-sync.pipe")) {
 					$file = fopen("/var/run/keys/keys-sync.pipe", "a");
 					if($file) {
-						error_log($_POST['password']."\n");
 						$timer = fwrite($file, $_POST['password']."\n");
 						fclose($file);
 					}
 				}
 			} catch(ErrorException $e) {
-				error_log($e);
+				// Log only the message: the stack trace can contain the password argument of fwrite()
+				error_log($e->getMessage());
 			}
 		}
 		$view = path_join($base_path, 'views', $router->view.'.php');
