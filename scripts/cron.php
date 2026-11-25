@@ -200,6 +200,8 @@ function deprecate_public_keys($config, $public_keys, $entity_identifier, $recip
 			$expiration_time_in_days = round(($expiration_date - time()) / (60 * 60 * 24));
 				
 			if($expiration_time_in_days == 21 || $expiration_time_in_days == 14 || $expiration_time_in_days <= 7) {
+				// Send each notice only once: cron.php runs more than once a day (migration 009)
+				if($expiration_time_in_days > 0 && $public_key->expiry_notice_days == $expiration_time_in_days) continue;
 				$email = new Email;
 				$email->add_reply_to($config['email']['admin_address'], $config['email']['admin_name']);
 				$email->add_recipient($recipient_mail, $recipient_name);
@@ -212,6 +214,7 @@ function deprecate_public_keys($config, $public_keys, $entity_identifier, $recip
 					$email->body = "Public key will expire soon. Expired keys are removed immediately and will not be usable anymore.";
 				}
 				// A failed mail must not stop the removal of the other expired keys
+				$sent = true;
 				if(!empty($recipient_mail)) {
 					try {
 						cron_send_mail($email);
@@ -219,7 +222,13 @@ function deprecate_public_keys($config, $public_keys, $entity_identifier, $recip
 						global $errors;
 						fwrite(STDERR, "Could not send the key expiry mail for {$entity_identifier}: {$e->getMessage()}\n");
 						$errors++;
+						$sent = false;
 					}
+				}
+				// Remember the notice, unless the mail failed: then the next run tries again
+				if($expiration_time_in_days > 0 && $sent) {
+					$public_key->expiry_notice_days = $expiration_time_in_days;
+					$public_key->update();
 				}
 			}
 		}
