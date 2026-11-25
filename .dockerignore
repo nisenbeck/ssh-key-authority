@@ -18,3 +18,7 @@ services/
 docker/config/
 docker/db/
 .dockerignore
+
+# Local configuration and keys (docker-compose mounts docker/config at runtime)
+config/*
+!config/config-sample.ini
