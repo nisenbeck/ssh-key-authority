@@ -21,6 +21,10 @@ abstract class Record {
 	*/
 	protected $data;
 	/**
+	* Fields set with __set since the record was loaded or last updated (field name => true)
+	*/
+	protected $changed;
+	/**
 	* Defines the database table that these records are stored in
 	*/
 	protected $table;
@@ -40,6 +44,7 @@ abstract class Record {
 		$this->active_user = &$active_user;
 		$this->id = $id;
 		$this->data = array();
+		$this->changed = array();
 		foreach($preload_data as $field => $value) {
 			$this->data[$field] = $value;
 		}
@@ -93,12 +98,15 @@ abstract class Record {
 	*/
 	public function __set($field, $value) {
 		$this->data[$field] = $value;
+		$this->changed[$field] = true;
 		$this->dirty = true;
 		if($field == $this->idfield) $this->id = $value;
 	}
 
 	/**
 	* Update the database with all fields that have been modified.
+	* Only fields that were set since the record was loaded or last updated are written. The other
+	* loaded values can be old: another process (web, cron, sync) can have changed them since.
 	* @return array of StdClass detailing actual updates that were applied
 	* @throws UniqueKeyViolationException if the update violated a unique key on the table
 	*/
@@ -116,16 +124,16 @@ abstract class Record {
 		$values = array();
 		$types = '';
 		foreach($row as $field => $value) {
-			if(array_key_exists($field, $this->data) && $this->data[$field] != $value) {
-				$update = new StdClass;
-				$update->field = $field;
-				$update->old_value = $value;
-				$update->new_value = $this->data[$field];
-				$updates[] = $update;
-				$fields[] = "`$field` = ?";
-				$values[] =& $this->data[$field];
-				$types .= 's';
-			}
+			if(!isset($this->changed[$field]) || !array_key_exists($field, $this->data)) continue;
+			if($this->data[$field] == $value) continue;
+			$update = new StdClass;
+			$update->field = $field;
+			$update->old_value = $value;
+			$update->new_value = $this->data[$field];
+			$updates[] = $update;
+			$fields[] = "`$field` = ?";
+			$values[] =& $this->data[$field];
+			$types .= 's';
 		}
 		if(!empty($updates)) {
 			try {
@@ -152,6 +160,7 @@ abstract class Record {
 			}
 		}
 		$this->dirty = false;
+		$this->changed = array();
 		return $updates;
 	}
 }

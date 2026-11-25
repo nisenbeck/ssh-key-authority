@@ -22,7 +22,7 @@ class Group extends Entity {
 	* Triggers a resync if the group was activated/deactivated.
 	*/
 	public function update() {
-		if($this->data['system']) $this->data['active'] = 1; // Cannot disable system groups
+		if($this->data['system']) $this->active = 1; // Cannot disable system groups
 		$changes = parent::update();
 		$resync = false;
 		foreach($changes as $change) {

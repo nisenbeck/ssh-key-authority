@@ -291,7 +291,7 @@ class User extends Entity {
 	public function get_csrf_token() {
 		if(is_null($this->entity_id)) throw new BadMethodCallException('User must be in directory before CSRF token can be generated');
 		if(!isset($this->data['csrf_token'])) {
-			$this->data['csrf_token'] = hash("sha512", mt_rand(0, mt_getrandmax()));
+			$this->csrf_token = hash("sha512", mt_rand(0, mt_getrandmax()));
 			$this->update();
 		}
 		return $this->data['csrf_token'];

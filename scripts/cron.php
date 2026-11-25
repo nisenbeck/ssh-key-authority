@@ -48,6 +48,11 @@ foreach($servers as $server) {
 	}
 }
 foreach($users as $user) {
+	// Load the user again: the list is from the start of the run, and an admin can have changed
+	// the user since, for example with "Disable account". get_details_from_ldap() reads
+	// force_disable, and update() writes the fields that this run sets, for example active.
+	$uid = $user->uid;
+	$user = new User($user->entity_id);
 	// Process each user separately. An error with one user must not stop
 	// the processing of all other users.
 	try {
@@ -161,7 +166,7 @@ foreach($users as $user) {
 		// The LDAP server is not available. Do not continue with the other users.
 		throw $e;
 	} catch(Throwable $e) {
-		fwrite(STDERR, "Error while processing user {$user->uid}: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}\n");
+		fwrite(STDERR, "Error while processing user {$uid}: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}\n");
 		$errors++;
 	}
 }
