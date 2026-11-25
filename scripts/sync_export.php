@@ -114,7 +114,10 @@ foreach($servers as $server) {
 	}
 	echo date('c')." {$hostname}: Generating keyfiles.\n";
 	try {
-		$keyfiles = build_server_keyfiles($server, $only_username);
+		// Export all files of the host, also with --user: the host folder is the record of all files,
+		// and sync_export_apply.sh --prune removes remote files that are not in it. --user only
+		// limits the LDAP users in the output of --preview.
+		$keyfiles = build_server_keyfiles($server, $preview ? $only_username : null);
 	} catch(Exception $e) {
 		echo date('c')." {$hostname}: Failed to generate keyfiles: ".$e->getMessage()."\n";
 		$exit_code = 1;
@@ -198,7 +201,9 @@ Mandatory arguments to long options are mandatory for short options too.
                          (specified by name, comma-separated)
   -i, --id=ID            export only the specified single host
                          (specified by id)
-  -u, --user             export only the specified user/account name
+  -u, --user             with --preview, show only the specified LDAP user
+                         besides the server accounts (an export always has
+                         all files of a host)
   -p, --preview          perform no changes, display content of all
                          keyfiles instead of writing them to disk
       --help             display this help and exit
