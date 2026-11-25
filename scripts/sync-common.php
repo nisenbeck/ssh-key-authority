@@ -221,7 +221,9 @@ function get_keys($access_rules, $account_name, $hostname) {
 			$keyfile .= "# ".comment_text($entity->name)."@".comment_text($entity->server->hostname);
 			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
 			$keyfile .= "\n";
-			if($entity->server->key_management != 'decommissioned') {
+			if(!$entity->active) {
+				$keyfile .= "# Inactive account\n";
+			} elseif($entity->server->key_management != 'decommissioned') {
 				$keys = $entity->list_public_keys($account_name, $hostname);
 				foreach($keys as $key) {
 					$keyfile .= $prefix.$key->export()."\n";
@@ -277,7 +279,9 @@ function get_group_keys($entities, $account_name, $hostname, $prefix, &$seen) {
 		case 'ServerAccount':
 			$keyfile .= "# ".comment_text($entity->name)."@".comment_text($entity->server->hostname);
 			$keyfile .= "\n";
-			if($entity->server->key_management != 'decommissioned') {
+			if(!$entity->active) {
+				$keyfile .= "# Inactive account\n";
+			} elseif($entity->server->key_management != 'decommissioned') {
 				$keys = $entity->list_public_keys($account_name, $hostname);
 				foreach($keys as $key) {
 					$keyfile .= $prefix.$key->export()."\n";
