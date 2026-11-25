@@ -281,11 +281,24 @@ process_host() {
 	fi
 
 	local files_to_send=()
+	local upload_failed=0
 	local account
 	for account in "$host_dir"/*; do
 		local base
 		base=$(basename "$account")
 		[ -f "$account" ] || continue
+
+		# Account names go into an sftp batch file. Refuse names with characters
+		# that sftp can interpret (quotes, newlines, '!' commands).
+		if [[ ! "${account##*/}" =~ ^[A-Za-z0-9_][A-Za-z0-9._@-]*$ ]]; then
+			log "$hostname: FAILED - unsafe account file name $(printf '%q' "${account##*/}"), skipping"
+			upload_failed=1
+			# Remove an old remote file with this name: it can contain keys that were removed since
+			if [ "$DRY_RUN" != "1" ]; then
+				ssh -n "${ssh_opts[@]}" "$REMOTE_USER@$hostname" "rm -f -- $(printf '%q' "$keydir/${account##*/}")" || true
+			fi
+			continue
+		fi
 
 		local check
 		check=$(jq -r --arg u "$base" '.files[$u].check // false' "$manifest")
@@ -298,7 +311,6 @@ process_host() {
 		files_to_send+=("$account")
 	done
 
-	local upload_failed=0
 	if [ ${#files_to_send[@]} -gt 0 ]; then
 		if [ "$DRY_RUN" = "1" ]; then
 			log "$hostname: [dry-run] would upload: $(printf '%s ' "${files_to_send[@]##*/}")"
