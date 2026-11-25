@@ -117,7 +117,9 @@ function build_server_keyfiles($server, $only_username = null) {
 	if($server->authorization == 'automatic LDAP' || $server->authorization == 'manual LDAP') {
 		// Generate keyfiles for LDAP users
 		$optiontext = array();
+		$ldap_options_invalid = false;
 		foreach($server->list_ldap_access_options() as $option) {
+			if(!valid_option_value($option->value)) $ldap_options_invalid = true;
 			$optiontext[] = $option->option.(is_null($option->value) ? '' : '="'.str_replace('"', '\\"', $option->value).'"');
 		}
 		$prefix = implode(',', $optiontext);
@@ -130,7 +132,9 @@ function build_server_keyfiles($server, $only_username = null) {
 					$keyfile = sprintf($header, "LDAP user '{$user->uid}'", $config['web']['baseurl']);
 					$keys = $user->list_public_keys($username, $hostname);
 					if(count($keys) > 0) {
-						if($user->active) {
+						if($ldap_options_invalid) {
+							$keyfile .= "# Keys skipped: invalid LDAP access option value\n";
+						} elseif($user->active) {
 							foreach($keys as $key) {
 								$keyfile .= $prefix.$key->export()."\n";
 							}
@@ -151,6 +155,15 @@ function build_server_keyfiles($server, $only_username = null) {
 }
 
 /**
+* Check that an SSH option value cannot break out of its line in the authorized_keys file.
+* @param string|null $value option value
+* @return bool true if the value has no line break or NUL character
+*/
+function valid_option_value($value) {
+	return is_null($value) || !preg_match('/[\r\n\0]/', $value);
+}
+
+/**
 * Build the authorized_keys content granted via a list of access rules (used recursively for
 * group membership).
 * @param array $access_rules array of Access objects
@@ -166,6 +179,10 @@ function get_keys($access_rules, $account_name, $hostname) {
 		$entity = $access->source_entity;
 		$optiontext = array();
 		foreach($access->list_options() as $option) {
+			if(!valid_option_value($option->value)) {
+				$keyfile .= "# Access rule {$access->id} skipped: invalid option value\n";
+				continue 2;
+			}
             if ($option->option === 'environment') {
                 foreach (explode(',', $option->value) as $env_variable) {
                     $optiontext[] = $option->option . (is_null($option->value) ? '' : '="' . str_replace('"', '\\"', ltrim($env_variable)) . '"');
