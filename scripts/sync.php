@@ -487,15 +487,14 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			$success = false;
 			$entries = explode("\n", $ssh->exec('/usr/bin/env sha1sum '.escapeshellarg($keydir).'/*'));
 			$sha1sums = array();
-			if(!is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0) {
+			// Exit status 1: no files in the directory, or a file could not be read. sha1sum
+			// still prints the checksums of the other files, which the cleanup below needs.
+			if(!is_bool($ssh->getExitStatus()) && ($ssh->getExitStatus() == 0 || $ssh->getExitStatus() == 1)) {
 				foreach($entries as $entry) {
 					if(preg_match('|^([0-9a-f]{40})  '.preg_quote($keydir, '|').'/(.*)$|', $entry, $matches)) {
 						$sha1sums[$matches[2]] = $matches[1];
 					}
 				}
-				$success = true;
-			} elseif($ssh->getExitStatus() == 1) {
-				// No files in directory
 				$success = true;
 			}
 		} catch(ErrorException $e) {}
@@ -506,6 +505,8 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			report_all_accounts_failed($keyfiles, $only_username);
 			return;
 		}
+		$remote_files = $sha1sums;
+		$failed_files = array();
 		foreach($keyfiles as $username => $keyfile) {
 			if(is_null($only_username) || $username == $only_username) {
 				try {
@@ -531,6 +532,8 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 							fwrite($fh, $keyfile['keyfile']);
 							fclose($fh);
 							$success = $sftp->put($remote_filename, $local_filename, SFTP::SOURCE_LOCAL_FILE);
+							// The remote file has the new content now, so the cleanup keeps it also if chmod or chown fails
+							if($success) $remote_files[$username] = sha1($keyfile['keyfile']);
 							if(!$success) {
 								echo "Unable to transfer file using scp";
 							}
@@ -573,6 +576,8 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 					}
 				} catch(ErrorException $e) {}
 				if(!$success) {
+					// The cleanup below removes the old file, unless it already has the new content
+					if(!isset($remote_files[$username]) || $remote_files[$username] !== sha1($keyfile['keyfile'])) $failed_files[$username] = true;
 					$account_errors++;
 					echo "{$hostname}: Sync command execution failed for $username.\n";
 					if(isset($keyfile['account'])) {
@@ -581,22 +586,25 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				}
 			}
 		}
-		if(is_null($only_username)) {
-			// Clean up directory
-			foreach($sha1sums as $file => $sha1sum) {
-				if($file != '' && $file != 'keys-sync' && $file != '.hostnames') {
-					try {
-						$remote_filename = "$keydir/$file";
-						$success = false;
-						$ssh->exec('/usr/bin/env rm -f '.escapeshellarg($remote_filename));
-						$success = !is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0;
-					} catch(ErrorException $e) {}
-					if($success) {
-						echo date('c')." {$hostname}: Removed unknown file: {$file}\n";
-					} else {
-						$cleanup_errors++;
-						echo date('c')." {$hostname}: Couldn't remove unknown file: {$file}.\n";
-					}
+		// Clean up directory (in single-user mode only the file of that user). Remove the files that SKA
+		// does not generate, and also the old file of an account whose update failed: the old file can
+		// still contain keys that were removed since (fail closed).
+		foreach($remote_files as $file => $sha1sum) {
+			if(!is_null($only_username) && $file != $only_username) continue;
+			if(isset($keyfiles[$file]) && !isset($failed_files[$file])) continue;
+			if($file != '' && $file != 'keys-sync' && $file != '.hostnames') {
+				try {
+					$remote_filename = "$keydir/$file";
+					$success = false;
+					$ssh->exec('/usr/bin/env rm -f '.escapeshellarg($remote_filename));
+					$success = !is_bool($ssh->getExitStatus()) && $ssh->getExitStatus() == 0;
+				} catch(ErrorException $e) {}
+				$what = isset($keyfiles[$file]) ? 'outdated file after a failed update' : 'unknown file';
+				if($success) {
+					echo date('c')." {$hostname}: Removed {$what}: {$file}\n";
+				} else {
+					$cleanup_errors++;
+					echo date('c')." {$hostname}: Couldn't remove {$what}: {$file}.\n";
 				}
 			}
 		}
