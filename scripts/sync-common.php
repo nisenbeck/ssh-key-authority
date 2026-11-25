@@ -313,9 +313,12 @@ function get_group_keys($entities, $account_name, $hostname, $prefix, &$seen) {
 /**
 * Mark every account referenced by a set of keyfiles as having failed to sync.
 * @param array $keyfiles map as returned by build_server_keyfiles()
+* @param string|null $only_username if set, mark only this account (single-user sync)
 */
-function report_all_accounts_failed($keyfiles) {
-	foreach($keyfiles as $keyfile) {
+function report_all_accounts_failed($keyfiles, $only_username = null) {
+	foreach($keyfiles as $username => $keyfile) {
+		// A sync of one account must not change the status of the other accounts
+		if(!is_null($only_username) && $username != $only_username) continue;
 		if(isset($keyfile['account'])) {
 			$keyfile['account']->sync_report('sync failure');
 		}

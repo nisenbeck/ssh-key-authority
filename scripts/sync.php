@@ -216,7 +216,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			echo date('c')." {$hostname}: Multiple hosts with same IP address.\n";
 			$server->sync_report('sync failure', 'Multiple hosts with same IP address');
 			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
+			report_all_accounts_failed($keyfiles, $only_username);
 			return;
 		}
 	}
@@ -228,7 +228,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 		echo date('c')." {$hostname}: Public key authentication failed. Unable to load keyfile\n";
 		$server->sync_report('sync failure', 'SSH authentication failed: Unable to load keyfile');
 		$server->delete_all_sync_requests();
-		report_all_accounts_failed($keyfiles);
+		report_all_accounts_failed($keyfiles, $only_username);
 		return;
 	}
 
@@ -253,7 +253,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			echo date('c')." {$hostname}: Public key authentication failed. Invalid Key or Password\n";
 			$server->sync_report('sync failure', 'SSH authentication failed: Invalid Key or Password');
 			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
+			report_all_accounts_failed($keyfiles, $only_username);
 			return;
 		}
 	}
@@ -293,7 +293,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				echo date('c')." {$hostname}: RSA key validation failed.\n";
 				$server->sync_report('sync failure', 'SSH host key verification failed');
 				$server->delete_all_sync_requests();
-				report_all_accounts_failed($keyfiles);
+				report_all_accounts_failed($keyfiles, $only_username);
 				return;
 			}
 		}
@@ -305,7 +305,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				echo date('c')." {$hostname}: Multiple hosts with same host key.\n";
 				$server->sync_report('sync failure', 'Multiple hosts with same host key');
 				$server->delete_all_sync_requests();
-				report_all_accounts_failed($keyfiles);
+				report_all_accounts_failed($keyfiles, $only_username);
 				return;
 			}
 		}
@@ -313,7 +313,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 		echo date('c')." {$hostname}: Failed to verify host key.\n".$e->getMessage()."\n";
 		$server->sync_report('sync failure', 'SSH host key verification failed');
 		$server->delete_all_sync_requests();
-		report_all_accounts_failed($keyfiles);
+		report_all_accounts_failed($keyfiles, $only_username);
 		return;
 	}
 
@@ -344,7 +344,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 							echo date('c')." {$hostname}: Host key mismatch on second connection (possible MITM).\n";
 							$server->sync_report('sync failure', 'Host key mismatch on second connection');
 							$server->delete_all_sync_requests();
-							report_all_accounts_failed($keyfiles);
+							report_all_accounts_failed($keyfiles, $only_username);
 							return;
 						}
 					}
@@ -356,7 +356,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 					echo date('c')." {$hostname}: Public key authentication failed.\n";
 					$server->sync_report('sync failure', 'SSH authentication failed');
 					$server->delete_all_sync_requests();
-					report_all_accounts_failed($keyfiles);
+					report_all_accounts_failed($keyfiles, $only_username);
 					return;
 				}
 				$legacy = true; // keys-sync login failed, try root next
@@ -371,7 +371,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			if($attempt == 'root') {
 				$server->sync_report('sync failure', 'SSH connection/authentication failed');
 				$server->delete_all_sync_requests();
-				report_all_accounts_failed($keyfiles);
+				report_all_accounts_failed($keyfiles, $only_username);
 				return;
 			}
 		}
@@ -412,7 +412,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 					echo date('c')." {$hostname}: Hostnames file missing.\n";
 					$server->sync_report('sync failure', 'Hostnames file missing');
 					$server->delete_all_sync_requests();
-					report_all_accounts_failed($keyfiles);
+					report_all_accounts_failed($keyfiles, $only_username);
 					return;
 				} else {
 					$allowed_hostnames = null;
@@ -426,7 +426,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 				echo date('c')." {$hostname}: Cannot execute hostname -f.\n";
 				$server->sync_report('sync failure', 'Cannot execute hostname -f');
 				$server->delete_all_sync_requests();
-				report_all_accounts_failed($keyfiles);
+				report_all_accounts_failed($keyfiles, $only_username);
 				return;
 			}
 		}
@@ -434,7 +434,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			echo date('c')." {$hostname}: Hostname check failed (allowed: ".implode(", ", $allowed_hostnames).").\n";
 			$server->sync_report('sync failure', 'Hostname check failed');
 			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
+			report_all_accounts_failed($keyfiles, $only_username);
 			return;
 		}
 	}
@@ -493,7 +493,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			echo date('c')." {$hostname}: Cannot execute sha1sum.\n";
 			$server->sync_report('sync failure', 'Cannot execute sha1sum');
 			$server->delete_all_sync_requests();
-			report_all_accounts_failed($keyfiles);
+			report_all_accounts_failed($keyfiles, $only_username);
 			return;
 		}
 		foreach($keyfiles as $username => $keyfile) {
