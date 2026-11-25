@@ -84,7 +84,26 @@ if(isset($options['all'])) {
 		}
 	}
 } elseif(isset($options['id'])) {
-	sync_server($options['id'], $username, $preview, $no_password);
+	try {
+		sync_server($options['id'], $username, $preview, $no_password);
+	} catch(Throwable $e) {
+		// For example a closed SSH connection: phpseclib throws RuntimeException, not ErrorException
+		echo date('c')." Sync of server {$options['id']} aborted: ".$e->getMessage()."\n";
+		if(!$preview) {
+			try {
+				$server = $server_dir->get_server_by_id($options['id']);
+				$server->sync_report('sync failure', 'Sync aborted: '.$e->getMessage());
+				// It is not known which accounts were synced, so report all accounts of this sync as failed
+				foreach($server->list_accounts() as $account) {
+					if(is_null($username) || $account->name == $username) $account->sync_report('sync failure');
+				}
+			} catch(Throwable $e2) {
+				// For example, the database is not available
+				echo date('c')." Could not report the failed sync: ".$e2->getMessage()."\n";
+			}
+		}
+		exit(1);
+	}
 	exit(0);
 }
 
