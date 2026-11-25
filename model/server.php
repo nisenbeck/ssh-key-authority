@@ -558,10 +558,11 @@ class Server extends Record {
 	}
 
 	/**
-	* Delete all pending sync requests for this server.
+	* Delete the sync requests of this server that are in progress. Requests that add_sync_request()
+	* set to pending again during the sync stay, so that their changes are synced later.
 	*/
 	public function delete_all_sync_requests() {
-		$stmt = $this->database->prepare("DELETE FROM sync_request WHERE server_id = ?");
+		$stmt = $this->database->prepare("DELETE FROM sync_request WHERE server_id = ? AND processing = 1");
 		$stmt->bind_param('d', $this->id);
 		$stmt->execute();
 	}

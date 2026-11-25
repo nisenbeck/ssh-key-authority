@@ -13,7 +13,9 @@ class SyncRequestDirectory extends DBDirectory {
 	* @param SyncRequest $req object to add
 	*/
 	public function add_sync_request(SyncRequest $req) {
-		$stmt = $this->database->prepare("INSERT IGNORE INTO sync_request SET server_id = ?, account_name = ?");
+		// If a request for this account is already being processed, the running sync can have read
+		// the data before this change. Set the request to pending again, so that it runs once more.
+		$stmt = $this->database->prepare("INSERT INTO sync_request SET server_id = ?, account_name = ? ON DUPLICATE KEY UPDATE processing = 0");
 		$stmt->bind_param('ds', $req->server_id, $req->account_name);
 		$stmt->execute();
 		$req->id = $stmt->insert_id;
@@ -21,12 +23,22 @@ class SyncRequestDirectory extends DBDirectory {
 	}
 
 	/**
-	* Delete the sync request from the database.
+	* Delete the sync request from the database, unless add_sync_request() set it to pending again.
 	* @param SyncRequest $req object to delete
 	*/
 	public function delete_sync_request(SyncRequest $req) {
-		$stmt = $this->database->prepare("DELETE FROM sync_request WHERE id = ?");
+		$stmt = $this->database->prepare("DELETE FROM sync_request WHERE id = ? AND processing = 1");
 		$stmt->bind_param('s', $req->id);
+		$stmt->execute();
+		$stmt->close();
+	}
+
+	/**
+	* Set all sync requests to pending. Use only in the sync daemon, at its start and at its end: then
+	* requests that are marked as in progress belong to syncs that did not finish.
+	*/
+	public function reset_sync_requests_in_progress() {
+		$stmt = $this->database->prepare("UPDATE sync_request SET processing = 0");
 		$stmt->execute();
 		$stmt->close();
 	}

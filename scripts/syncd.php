@@ -133,8 +133,11 @@ pcntl_signal(SIGINT, "sig_handler");
 require('../core.php');
 require('sync-common.php');
 dlog("Daemon started");
+// Requests that are marked as in progress are from a daemon that stopped before the sync was done
+$sync_request_dir->reset_sync_requests_in_progress();
 
 $sync_procs = array();
+$sync_running = array(); // request ID => array(server ID, account name or null) of each running sync
 define('MAX_PROCS', 20);
 
 $pipefile = '/var/run/keys/keys-sync.pipe';
@@ -178,8 +181,26 @@ while(is_null($signal)) {
 		$reqs = $sync_request_dir->list_pending_sync_requests();
 		$tmp_password = $password;
 		if(!$key_password_enabled || !is_null($password)) {
+			$waiting_servers = array(); // servers with a sync of the whole server that waits
 			foreach($reqs as $req) {
 				if(count($sync_procs) > MAX_PROCS) break;
+				// Two syncs that write the same keyfile must not run at the same time, otherwise the older
+				// sync can upload its file after the newer one. A sync of the whole server (account name
+				// null) runs alone on its server. Syncs of different accounts can run in parallel. This
+				// also waits for a request that add_sync_request() set to pending again while its sync runs.
+				if(isset($waiting_servers[$req->server_id])) continue;
+				$blocked = false;
+				foreach($sync_running as $running) {
+					if($running[0] == $req->server_id && (is_null($running[1]) || is_null($req->account_name) || $running[1] === $req->account_name)) {
+						$blocked = true;
+						break;
+					}
+				}
+				if($blocked) {
+					// A waiting sync of the whole server must not wait for ever behind new account syncs
+					if(is_null($req->account_name)) $waiting_servers[$req->server_id] = true;
+					continue;
+				}
 				$args = array();
 				$args[] = '--id';
 				$args[] = $req->server_id;
@@ -192,7 +213,8 @@ while(is_null($signal)) {
 				}
 				$req->set_in_progress();
 				dlog("Sync process spawning for: {$req->server_id}/{$req->account_name}");
-				$sync_procs[] = new SyncProcess(__DIR__.'/sync.php', $args, $password, $req);
+				$sync_procs[$req->id] = new SyncProcess(__DIR__.'/sync.php', $args, $password, $req);
+				$sync_running[$req->id] = array($req->server_id, $req->account_name);
 			}
 		}
 	} catch(mysqli_sql_exception $e) {
@@ -217,6 +239,7 @@ while(is_null($signal)) {
 			dlog($data['output']);
 			unset($sync_proc);
 			unset($sync_procs[$ref]);
+			unset($sync_running[$ref]);
 		}
 	}
 	sleep(1);
@@ -232,6 +255,26 @@ while(is_null($signal)) {
 	}
 }
 dlog("Received exit signal");
+// The running syncs may not finish, for example when systemd stops all processes of the unit.
+// Set their requests to pending first, so that the destructors do not delete them and the next
+// start runs them again.
+$sync_request_dir->reset_sync_requests_in_progress();
+// Then wait for the running syncs. sync.php ignores SIGTERM after the login, so that a sync is not
+// stopped in the middle (also not by timeout). Until syncd ends, it keeps its lock, so no second
+// daemon can start the same request while an old sync still runs. With systemd, TimeoutStopSec
+// limits the wait.
+unset($sync_proc); // The foreach above left a reference to the last element
+while(count($sync_procs) > 0) {
+	foreach($sync_procs as $ref => $proc) {
+		$data = $proc->get_data();
+		if(!empty($data)) {
+			dlog($data['output']);
+			unset($sync_procs[$ref]);
+		}
+	}
+	unset($proc);
+	sleep(1);
+}
 
 if(!isset($options['systemd'])) {
 	// Release lock
