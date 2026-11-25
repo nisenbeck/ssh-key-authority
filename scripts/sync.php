@@ -343,22 +343,24 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 			$sftp->setTimeout(60);
 
 			// Verify host key of the second connection BEFORE login
+			// phpseclib returns false, for example, when the host key signature is not valid. Do not continue then.
 			$hostkeyRaw2 = $sftp->getServerPublicHostKey();
+			$fingerprint2 = null;
 			if (is_string($hostkeyRaw2)) {
 				$parts2 = explode(' ', $hostkeyRaw2, 3);
 				if (count($parts2) >= 2) {
 					$keyData2 = base64_decode($parts2[1]);
 					if ($keyData2 !== false) {
 						$fingerprint2 = strtoupper(hash('sha256', $keyData2));
-						if (strcmp($expected_fingerprint, $fingerprint2) !== 0) {
-							echo date('c')." {$hostname}: Host key mismatch on second connection (possible MITM).\n";
-							$server->sync_report('sync failure', 'Host key mismatch on second connection');
-							$server->delete_all_sync_requests();
-							report_all_accounts_failed($keyfiles, $only_username);
-							return;
-						}
 					}
 				}
+			}
+			if (is_null($fingerprint2) || strcmp($expected_fingerprint, $fingerprint2) !== 0) {
+				echo date('c')." {$hostname}: Host key mismatch on second connection (possible MITM).\n";
+				$server->sync_report('sync failure', 'Host key mismatch on second connection');
+				$server->delete_all_sync_requests();
+				report_all_accounts_failed($keyfiles, $only_username);
+				return;
 			}
 
 			if (!$sftp->login($attempt, $key)) {
