@@ -7,6 +7,13 @@ After=mysql.service
 [Service]
 Type=simple
 ExecStart=/srv/keys/scripts/syncd.php --systemd
+# Start the daemon again if it stops (it also uses die() with exit status 0, so not only on-failure)
+Restart=always
+RestartSec=10
+# /var/run/keys for the named pipe and the timer file (key_password_enabled). With --systemd,
+# syncd does not create the directory. /run is cleared at boot.
+RuntimeDirectory=keys
+RuntimeDirectoryMode=0755
 User=keys-sync
 StandardOutput=journal
 StandardError=journal

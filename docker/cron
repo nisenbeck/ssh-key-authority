@@ -1,2 +1,7 @@
-*/5 *   * * * /ska/scripts/cron.php
-*/1 *   * * * /bin/bash -c 'PID=$(cat /var/run/keys/keys-sync.pid 2>/dev/null) && [ -n "$PID" ] && [ -d "/proc/$PID" ] || /ska/scripts/syncd.php --user keys-sync'
+# cron uses PATH=/usr/bin:/bin, but the php binary of the image is in /usr/local/bin (scripts use '#!/usr/bin/env php')
+PATH=/usr/local/bin:/usr/bin:/bin
+# Output goes to the container log (docker logs), because the image has no mail system
+# flock: a run must not start while the previous run still works. timeout: a run that hangs (for
+# example on an LDAP server that does not answer) must not hold the lock for ever.
+*/5 *   * * * flock -n /run/ska-cron.lock timeout -k 10m 30m /ska/scripts/cron.php > /proc/1/fd/1 2> /proc/1/fd/2
+*/1 *   * * * /bin/bash -c 'PID=$(cat /var/run/keys/keys-sync.pid 2>/dev/null) && [ -n "$PID" ] && [ -d "/proc/$PID" ] || /ska/scripts/syncd.php --user keys-sync' > /proc/1/fd/1 2> /proc/1/fd/2
