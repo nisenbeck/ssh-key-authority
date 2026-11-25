@@ -323,7 +323,14 @@ class User extends Entity {
 		$ldapusers = $this->ldap->search($config['ldap']['dn_user'], LDAP::escape($config['ldap']['user_id']).'='.LDAP::escape($this->uid), array_keys(array_flip($attributes)));
 		if($ldapuser = reset($ldapusers)) {
 			$this->auth_realm = 'LDAP';
-			$this->uid = self::ldap_attribute($ldapuser, $config['ldap']['user_id'], $this->uid);
+			// The search ignores case. Use the LDAP spelling of the searched uid, also if the attribute has more than one value.
+			$ldap_uids = (array)($ldapuser[strtolower($config['ldap']['user_id'])] ?? array());
+			foreach($ldap_uids as $ldap_uid) {
+				if(strcasecmp($ldap_uid, $this->uid) == 0) {
+					$this->uid = $ldap_uid;
+					break;
+				}
+			}
 			// Optional attributes can be missing in LDAP. Use a fallback value instead of an error.
 			$this->name = self::ldap_attribute($ldapuser, $config['ldap']['user_name'], $this->uid);
 			$this->email = self::ldap_attribute($ldapuser, $config['ldap']['user_email'], '');
@@ -342,9 +349,15 @@ class User extends Entity {
 			// An admin disabled the account in SKA ("Disable account (override LDAP)")
 			if($this->force_disable) $this->active = 0;
 			$this->admin = 0;
-			$group_member = self::ldap_attribute($ldapuser, $config['ldap']['group_member_value'], null);
-			if(!is_null($group_member)) {
-				$this->ldapgroups = $this->ldap->search($config['ldap']['dn_group'], LDAP::escape($config['ldap']['group_member']).'='.LDAP::escape($group_member), array('cn'));
+			$group_members = (array)($ldapuser[strtolower($config['ldap']['group_member_value'])] ?? array());
+			if(count($group_members) > 0) {
+				// Search with all values, for example both values of a uid with more than one value
+				$filters = array();
+				foreach($group_members as $group_member) {
+					$filters[] = '('.LDAP::escape($config['ldap']['group_member']).'='.LDAP::escape($group_member).')';
+				}
+				$filter = count($filters) == 1 ? $filters[0] : '(|'.implode('', $filters).')';
+				$this->ldapgroups = $this->ldap->search($config['ldap']['dn_group'], $filter, array('cn'));
 				foreach($this->ldapgroups as $ldapgroup) {
 					if($ldapgroup['cn'] == $config['ldap']['admin_group_cn']) $this->admin = 1;
 				}
@@ -390,8 +403,8 @@ class User extends Entity {
 		$ldapusers = $this->ldap->search($config['ldap']['dn_user'], LDAP::escape($config['ldap']['user_id']).'='.LDAP::escape($this->uid), array($config['ldap']['user_superior']));
 		if($ldapuser = reset($ldapusers)) {
 			$superior = null;
-			if(isset($ldapuser[strtolower($config['ldap']['user_superior'])]) && $ldapuser[strtolower($config['ldap']['user_superior'])] != $this->uid) {
-				$superior_uid = $ldapuser[strtolower($config['ldap']['user_superior'])];
+			$superior_uid = self::ldap_attribute($ldapuser, $config['ldap']['user_superior'], null);
+			if(!is_null($superior_uid) && $superior_uid != $this->uid) {
 				try {
 					$superior = $user_dir->get_user_by_uid($superior_uid);
 				} catch(UserNotFoundException $e) {
