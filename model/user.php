@@ -328,6 +328,8 @@ class User extends Entity {
 			} else {
 				$this->active = 1;
 			}
+			// An admin disabled the account in SKA ("Disable account (override LDAP)")
+			if($this->force_disable) $this->active = 0;
 			$this->admin = 0;
 			$group_member = self::ldap_attribute($ldapuser, $config['ldap']['group_member_value'], null);
 			// Do not continue without group membership data. An empty group list would

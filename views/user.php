@@ -31,9 +31,19 @@ if(isset($_POST['reassign_servers']) && is_array($_POST['servers']) && $active_u
 		redirect('#details');
 	}
 } elseif(isset($_POST['edit_user']) && $active_user->admin) {
-	$user->force_disable = $_POST['force_disable'];
-	if($active_user->auth_realm == 'LDAP' ) {
-		$user->get_details_from_ldap();
+	$user->force_disable = empty($_POST['force_disable']) ? 0 : 1;
+	// Disable: at once, also when LDAP is not available. update() starts the resync.
+	// Back to the LDAP status: read it from LDAP. With LDAP disabled, keep the status
+	// (cron.php sets LDAP users inactive then).
+	if($user->force_disable) {
+		$user->active = 0;
+	} elseif($user->auth_realm == 'LDAP' && $config['ldap']['enabled'] == 1) {
+		try {
+			$user->get_details_from_ldap();
+		} catch(UserNotFoundException $e) {
+			// Same as cron.php: a user that is not in LDAP is inactive
+			$user->active = 0;
+		}
 	}
 	$user->update();
 	redirect('#settings');
