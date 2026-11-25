@@ -48,8 +48,40 @@ if(!isset($options['systemd'])) {
 		exit(1);
 	}
 
+	// /var/run/keys is writable by $username. Root must not open files in it (symlink attack).
+	// As root, only create the directories and open the log file in /var/log/keys (owned by root),
+	// then drop privileges before lock and pid file are opened.
+	$rundir = dirname($pidfile);
+	if(!is_dir($rundir) && !(mkdir($rundir) && chmod($rundir, 0755))) {
+		fwrite(STDERR, "Could not create $rundir\n");
+		exit(1);
+	}
+	if(fileowner($rundir) !== $user['uid'] && !chown($rundir, $user['uid'])) {
+		fwrite(STDERR, "Could not change owner of $rundir to $username\n");
+		exit(1);
+	}
+	if(!is_dir(dirname($logfile)) && !mkdir(dirname($logfile), 0755)) {
+		fwrite(STDERR, "Could not create ".dirname($logfile)."\n");
+		exit(1);
+	}
+	// Redirect STDOUT to the log file. fopen() uses the lowest free file descriptor, which is 1.
+	fclose(STDOUT);
+	$stdout = fopen($logfile, 'a');
+	if(!$stdout) {
+		fwrite(STDERR, "Could not open $logfile\n");
+		exit(1);
+	}
+	if(!posix_initgroups($username, $user['gid']) || !posix_setgid($user['gid']) || !posix_setuid($user['uid'])) {
+		fwrite(STDERR, "Could not drop privileges to $username\n");
+		exit(1);
+	}
+
 	// Attempt to establish lock
-	$lock = fopen($lockfile, 'w+');
+	$lock = @fopen($lockfile, 'w+');
+	if(!$lock) {
+		fwrite(STDERR, "Could not open $lockfile (remove old files owned by root after the old process has stopped)\n");
+		exit(1);
+	}
 	if(!flock($lock, LOCK_EX | LOCK_NB)) {
 		fwrite(STDERR, "Could not establish lock, process already running?\n");
 		exit(0);
@@ -64,25 +96,26 @@ if(!isset($options['systemd'])) {
 		// This is the child process
 	} else {
 		// This is the parent process
-		// Write pidfile and exit
-		$fh = fopen($pidfile, 'w');
+		// Write pidfile and exit. We hold the lock, so an existing pidfile is stale
+		// (for example owned by root from an old version) and can be removed.
+		@unlink($pidfile);
+		$fh = @fopen($pidfile, 'w');
+		if(!$fh) {
+			fwrite(STDERR, "Could not write $pidfile\n");
+			exit(1);
+		}
 		fwrite($fh, "$pid\n");
 		fclose($fh);
 		exit();
 	}
 
 	// We have now forked
-	// Close STDIN/STDOUT/STDERR and redirect output to logfile
+	// Close STDIN/STDERR. STDOUT is already the log file.
 	fclose(STDIN);
-	fclose(STDOUT);
 	fclose(STDERR);
 	$stdin = fopen('/dev/null', 'r');
-	$stdout = fopen($logfile, 'a');
 	$stderr = fopen('php://stdout', 'a');
 
-	// Change user/group that we are running as
-	posix_setgid($user['gid']);
-	posix_setuid($user['uid']);
 	if(!isset($options['systemd'])) {
 		// Make the current process a session leader
 		if(posix_setsid() == -1) {
