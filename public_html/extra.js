@@ -298,7 +298,7 @@ $(function() {
 					if(status.sync_status == 'sync success') classname = 'success';
 					if(status.sync_status == 'sync failure') classname = 'danger';
 					if(status.sync_status == 'sync warning') classname = 'warning';
-					update_server_sync_status(classname, status.last_sync.details);
+					update_server_sync_status(classname, status.last_sync ? status.last_sync.details : '');
 				}
 				$.each(status.accounts, function(index, item) {
 					if(!item.pending) {

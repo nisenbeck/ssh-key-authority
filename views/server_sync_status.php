@@ -26,8 +26,8 @@ if (!$active_user->admin && !$server_admin && !$account_admin_on_this_server) {
 
 $page = new PageSection('server_sync_status_json');
 $page->set('sync_status', $server->sync_status);
-$page->set('last_sync_event', $server->get_last_sync_event());
-$page->set('pending', $server->sync_is_pending());
+$page->set('last_sync', $server->get_last_sync_event());
+$page->set('pending', count($server->list_sync_requests()) > 0);
 
 // Only show account inventory to privileged viewers.
 // - Global admin or server admin: full list

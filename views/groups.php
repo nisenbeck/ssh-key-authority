@@ -40,7 +40,7 @@ if(isset($_POST['add_group']) && ($active_user->admin)) {
 	} catch(GroupSearchInvalidRegexpException $e) {
 		$groups = array();
 		$alert = new UserAlert;
-		$alert->content = "The group name search pattern '".$filter['hostname']."' is invalid.";
+		$alert->content = "The group name search pattern '".$filter['name']."' is invalid.";
 		$alert->class = 'danger';
 		$active_user->add_alert($alert);
 	}

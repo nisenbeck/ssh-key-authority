@@ -231,6 +231,9 @@ function unsaved_changes_exist() {
 }
 
 function get_unlocked_timer() {
+	// syncd creates the file only after its start. The global error handler would turn the
+	// warning of fopen() into an exception, and every page would fail.
+	if(!is_readable("/var/run/keys/keys-sync.timer")) return 0;
 	$file = fopen("/var/run/keys/keys-sync.timer", "r");
 	if(!$file) return 0;
 	$timer = fread($file, 4);
