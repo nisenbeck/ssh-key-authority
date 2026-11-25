@@ -73,7 +73,7 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 	redirect('#accounts');
 } elseif(isset($_POST['edit_server']) && $active_user->admin) {
 	$hostname = trim($_POST['hostname']);
-	if(!preg_match('|.*\..*\..*|', $hostname)) {
+	if(!preg_match('|.*\..*\..*|', $hostname) || preg_match('/[\x00-\x1F\x7F]/', $hostname)) {
 		$content = new PageSection('invalid_hostname');
 		$content->set('hostname', $hostname);
 	} else {

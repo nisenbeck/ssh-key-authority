@@ -1,7 +1,7 @@
 <?php
 if(isset($_POST['add_group']) && ($active_user->admin)) {
 	$name = trim($_POST['name']);
-	if(preg_match('|/|', $name)) {
+	if(preg_match('|[/\x00-\x1F\x7F]|', $name)) {
 		$content = new PageSection('invalid_group_name');
 		$content->set('group_name', $name);
 	} else {

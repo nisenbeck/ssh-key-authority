@@ -2,7 +2,7 @@
 if(isset($_POST['add_server']) && ($active_user->admin)) {
 	$hostname = trim($_POST['hostname']);
 	$key_management = trim($_POST['key_management']);
-	if(!preg_match('|.*\..*\..*|', $hostname)) {
+	if(!preg_match('|.*\..*\..*|', $hostname) || preg_match('/[\x00-\x1F\x7F]/', $hostname)) {
 		$content = new PageSection('invalid_hostname');
 		$content->set('hostname', $hostname);
 	} else {

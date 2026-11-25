@@ -131,17 +131,22 @@ if(isset($_POST['add_admin']) && ($active_user->admin)) {
 	redirect('#access');
 } elseif(isset($_POST['edit_group']) && ($active_user->admin)) {
 	$name = trim($_POST['name']);
-	$group->name = $name;
-	$group->active = $_POST['active'];
-	try {
-		$group->update();
-		$alert = new UserAlert;
-		$alert->content = "Settings saved.";
-		$active_user->add_alert($alert);
-		redirect('/groups/'.urlencode($name).'#settings'); // Must specify, since the name may have changed
-	} catch(UniqueKeyViolationException $e) {
-		$content = new PageSection('unique_key_violation');
-		$content->set('exception', $e);
+	if(preg_match('|[/\x00-\x1F\x7F]|', $name)) {
+		$content = new PageSection('invalid_group_name');
+		$content->set('group_name', $name);
+	} else {
+		$group->name = $name;
+		$group->active = $_POST['active'];
+		try {
+			$group->update();
+			$alert = new UserAlert;
+			$alert->content = "Settings saved.";
+			$active_user->add_alert($alert);
+			redirect('/groups/'.urlencode($name).'#settings'); // Must specify, since the name may have changed
+		} catch(UniqueKeyViolationException $e) {
+			$content = new PageSection('unique_key_violation');
+			$content->set('exception', $e);
+		}
 	}
 } else {
 	if(isset($router->vars['format']) && $router->vars['format'] == 'json') {

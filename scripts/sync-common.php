@@ -97,19 +97,19 @@ function build_server_keyfiles($server, $only_username = null) {
 	foreach($accounts as $account) {
 		if($account->active == 0 || $account->sync_status == 'proposed') continue;
 		$username = str_replace('/', '', $account->name);
-		$keyfile = sprintf($header, "account '{$account->name}'", $config['web']['baseurl']."/servers/".urlencode($hostname)."/accounts/".urlencode($account->name));
+		$keyfile = sprintf($header, "account '".comment_text($account->name)."'", $config['web']['baseurl']."/servers/".urlencode($hostname)."/accounts/".urlencode($account->name));
 		// Collect a set of all groups that the account is a member of (directly or indirectly) and the account itself
 		$sets = $account->list_group_membership();
 		$sets[] = $account;
 		foreach($sets as $set) {
 			if(get_class($set) == 'Group') {
 				if($set->active == 0) continue; // Rules for inactive groups should be ignored
-				$keyfile .= "# === Start of rules applied due to membership in {$set->name} group ===\n";
+				$keyfile .= "# === Start of rules applied due to membership in ".comment_text($set->name)." group ===\n";
 			}
 			$access_rules = $set->list_access();
 			$keyfile .= get_keys($access_rules, $account->name, $hostname);
 			if(get_class($set) == 'Group') {
-				$keyfile .= "# === End of rules applied due to membership in {$set->name} group ===\n\n";
+				$keyfile .= "# === End of rules applied due to membership in ".comment_text($set->name)." group ===\n\n";
 			}
 		}
 		$keyfiles[$username] = array('keyfile' => $keyfile, 'check' => false, 'account' => $account);
@@ -129,7 +129,7 @@ function build_server_keyfiles($server, $only_username = null) {
 			$username = str_replace('/', '', $user->uid);
 			if(is_null($only_username) || $username == $only_username) {
 				if(!isset($keyfiles[$username])) {
-					$keyfile = sprintf($header, "LDAP user '{$user->uid}'", $config['web']['baseurl']);
+					$keyfile = sprintf($header, "LDAP user '".comment_text($user->uid)."'", $config['web']['baseurl']);
 					$keys = $user->list_public_keys($username, $hostname);
 					if(count($keys) > 0) {
 						if($ldap_options_invalid) {
@@ -152,6 +152,16 @@ function build_server_keyfiles($server, $only_username = null) {
 		unset($keyfiles['keys-sync']);
 	}
 	return $keyfiles;
+}
+
+/**
+* Make a value safe for a comment line in the authorized_keys file. A line break in a name
+* (e.g. a group name) would otherwise end the comment and start a new key line.
+* @param string $value text for the comment
+* @return string text without line breaks or NUL characters
+*/
+function comment_text($value) {
+	return str_replace(array("\r", "\n", "\0"), '?', $value);
 }
 
 /**
@@ -195,8 +205,8 @@ function get_keys($access_rules, $account_name, $hostname) {
 		if($prefix !== '') $prefix .= ' ';
 		switch(get_class($entity)) {
 		case 'User':
-			$keyfile .= "# {$entity->uid}";
-			$keyfile .= " granted access by {$access->granted_by->uid} on {$grant_date_full}";
+			$keyfile .= "# ".comment_text($entity->uid);
+			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
 			$keyfile .= "\n";
 			if($entity->active) {
 				$keys = $entity->list_public_keys($account_name, $hostname);
@@ -208,8 +218,8 @@ function get_keys($access_rules, $account_name, $hostname) {
 			}
 			break;
 		case 'ServerAccount':
-			$keyfile .= "# {$entity->name}@{$entity->server->hostname}";
-			$keyfile .= " granted access by {$access->granted_by->uid} on {$grant_date_full}";
+			$keyfile .= "# ".comment_text($entity->name)."@".comment_text($entity->server->hostname);
+			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
 			$keyfile .= "\n";
 			if($entity->server->key_management != 'decommissioned') {
 				$keys = $entity->list_public_keys($account_name, $hostname);
@@ -223,13 +233,13 @@ function get_keys($access_rules, $account_name, $hostname) {
 		case 'Group':
 			// Recurse!
 			$seen = array($entity->name => true);
-			$keyfile .= "# {$entity->name} group";
-			$keyfile .= " granted access by {$access->granted_by->uid} on {$grant_date_full}";
+			$keyfile .= "# ".comment_text($entity->name)." group";
+			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
 			$keyfile .= "\n";
 			if($entity->active) {
-				$keyfile .= "# == Start of {$entity->name} group members ==\n";
+				$keyfile .= "# == Start of ".comment_text($entity->name)." group members ==\n";
 				$keyfile .= get_group_keys($entity->list_members(), $account_name, $hostname, $prefix, $seen);
-				$keyfile .= "# == End of {$entity->name} group members ==\n";
+				$keyfile .= "# == End of ".comment_text($entity->name)." group members ==\n";
 			} else {
 				$keyfile .= "# Inactive group\n";
 			}
@@ -253,7 +263,7 @@ function get_group_keys($entities, $account_name, $hostname, $prefix, &$seen) {
 	foreach($entities as $entity) {
 		switch(get_class($entity)) {
 		case 'User':
-			$keyfile .= "# {$entity->uid}";
+			$keyfile .= "# ".comment_text($entity->uid);
 			$keyfile .= "\n";
 			if($entity->active) {
 				$keys = $entity->list_public_keys($account_name, $hostname);
@@ -265,7 +275,7 @@ function get_group_keys($entities, $account_name, $hostname, $prefix, &$seen) {
 			}
 			break;
 		case 'ServerAccount':
-			$keyfile .= "# {$entity->name}@{$entity->server->hostname}";
+			$keyfile .= "# ".comment_text($entity->name)."@".comment_text($entity->server->hostname);
 			$keyfile .= "\n";
 			if($entity->server->key_management != 'decommissioned') {
 				$keys = $entity->list_public_keys($account_name, $hostname);
@@ -280,11 +290,11 @@ function get_group_keys($entities, $account_name, $hostname, $prefix, &$seen) {
 			// Recurse!
 			if(!isset($seen[$entity->name])) {
 				$seen[$entity->name] = true;
-				$keyfile .= "# {$entity->name} group";
+				$keyfile .= "# ".comment_text($entity->name)." group";
 				$keyfile .= "\n";
-				$keyfile .= "# == Start of {$entity->name} group members ==\n";
+				$keyfile .= "# == Start of ".comment_text($entity->name)." group members ==\n";
 				$keyfile .= get_group_keys($entity->list_members(), $account_name, $hostname, $prefix, $seen);
-				$keyfile .= "# == End of {$entity->name} group members ==\n";
+				$keyfile .= "# == End of ".comment_text($entity->name)." group members ==\n";
 			}
 			break;
 		}
