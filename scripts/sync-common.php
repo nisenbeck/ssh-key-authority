@@ -209,7 +209,7 @@ function get_keys($access_rules, $account_name, $hostname) {
 		switch(get_class($entity)) {
 		case 'User':
 			$keyfile .= "# ".comment_text($entity->uid);
-			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
+			$keyfile .= " granted access by ".comment_text($access->granted_by->uid ?? 'removed user')." on {$grant_date_full}";
 			$keyfile .= "\n";
 			if($entity->active) {
 				$keys = $entity->list_public_keys($account_name, $hostname);
@@ -222,7 +222,7 @@ function get_keys($access_rules, $account_name, $hostname) {
 			break;
 		case 'ServerAccount':
 			$keyfile .= "# ".comment_text($entity->name)."@".comment_text($entity->server->hostname);
-			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
+			$keyfile .= " granted access by ".comment_text($access->granted_by->uid ?? 'removed user')." on {$grant_date_full}";
 			$keyfile .= "\n";
 			if(!$entity->active) {
 				$keyfile .= "# Inactive account\n";
@@ -239,7 +239,7 @@ function get_keys($access_rules, $account_name, $hostname) {
 			// Recurse!
 			$seen = array($entity->name => true);
 			$keyfile .= "# ".comment_text($entity->name)." group";
-			$keyfile .= " granted access by ".comment_text($access->granted_by->uid)." on {$grant_date_full}";
+			$keyfile .= " granted access by ".comment_text($access->granted_by->uid ?? 'removed user')." on {$grant_date_full}";
 			$keyfile .= "\n";
 			if($entity->active) {
 				$keyfile .= "# == Start of ".comment_text($entity->name)." group members ==\n";

@@ -162,7 +162,7 @@ foreach($this->get('group_members') as $member) {
 							break;
 						}
 						?>
-						<td>Added on <?php out($access->grant_date) ?> by <a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a></td>
+						<td>Added on <?php out($access->grant_date) ?> by <?php if(is_null($access->granted_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a><?php } ?></td>
 						<td>
 							<?php if(count($options) > 0) { ?>
 							<ul class="compact">
@@ -286,7 +286,7 @@ foreach($this->get('group_members') as $member) {
 						break;
 					}
 					?>
-					<td>Added on <?php out($access->grant_date) ?> by <a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a></td>
+					<td>Added on <?php out($access->grant_date) ?> by <?php if(is_null($access->granted_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a><?php } ?></td>
 					<?php } ?>
 				</tr>
 			</tbody>

@@ -95,7 +95,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 						}
 						?>
 						<td>
-							Access granted on <span class="date"><?php out($access->grant_date) ?> by <a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a></span>
+							Access granted on <span class="date"><?php out($access->grant_date) ?> by <?php if(is_null($access->granted_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a><?php } ?></span>
 						</td>
 						<td>
 							<?php if(count($options) > 0) { ?>
@@ -149,7 +149,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 							break;
 						}
 						?>
-						<td>Access requested on <span class="date"><?php out($access->request_date) ?></span> by <a href="<?php outurl('/users/'.urlencode($access->requested_by->uid))?>" class="user"><?php out($access->requested_by->uid) ?></a></td>
+						<td>Access requested on <span class="date"><?php out($access->request_date) ?></span> by <?php if(is_null($access->requested_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->requested_by->uid))?>" class="user"><?php out($access->requested_by->uid) ?></a><?php } ?></td>
 						<td></td>
 						<td class="nowrap">
 							<button type="submit" name="approve_access" value="<?php out($access->id)?>" class="btn btn-success btn-xs"><span class="glyphicon glyphicon-ok"></span> Approve</button>
@@ -282,7 +282,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 						break;
 					}
 					?>
-					<td>Access granted on <?php out($access->grant_date) ?> by <a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a></td>
+					<td>Access granted on <?php out($access->grant_date) ?> by <?php if(is_null($access->granted_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a><?php } ?></td>
 					<td>
 						<?php if(count($options) > 0) { ?>
 						<ul class="compact">
@@ -401,7 +401,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 						break;
 					}
 					?>
-					<td>Access granted on <?php out($access->grant_date) ?> by <?php out($access->granted_by->uid) ?></td>
+					<td>Access granted on <?php out($access->grant_date) ?> by <?php out($access->granted_by->uid ?? 'removed') ?></td>
 				</tr>
 				<?php } ?>
 			</tbody>
@@ -460,7 +460,7 @@ default: $sync_class = 'warning'; $sync_message = 'Not synced'; break;
 						break;
 					}
 					?>
-					<td>Access granted on <?php out($access->grant_date) ?> by <a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a></td>
+					<td>Access granted on <?php out($access->grant_date) ?> by <?php if(is_null($access->granted_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid) ?></a><?php } ?></td>
 				</tr>
 				<?php } ?>
 			</tbody>

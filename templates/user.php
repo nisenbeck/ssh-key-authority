@@ -127,7 +127,7 @@
 						}
 						?>
 					</td>
-					<td><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid)?></a></td>
+					<td><?php if(is_null($access->granted_by->uid)) { ?>removed<?php } else { ?><a href="<?php outurl('/users/'.urlencode($access->granted_by->uid))?>" class="user"><?php out($access->granted_by->uid)?></a><?php } ?></td>
 					<td><?php out($access->grant_date) ?></td>
 				</tr>
 				<?php } ?>
