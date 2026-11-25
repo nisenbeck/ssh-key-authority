@@ -83,30 +83,37 @@ class UserDirectory extends DBDirectory {
 			$user = $this->_get_user_by_uid($uid);
 		} catch(UserNotFoundException $e) {
 			if ($ldap_enabled == 1) {
+				// Create the user as keys-sync, then restore the real active user.
+				// Otherwise the rest of the request runs with the admin rights of keys-sync.
+				$previous_active_user = $active_user;
 				$active_user = $this->_get_user_by_uid('keys-sync');
-				$user = new User;
-				$user->uid = $uid;
-				$this->cache_uid[$uid] = $user;
-				$user->auth_realm = 'LDAP';
+				try {
+					$user = new User;
+					$user->uid = $uid;
+					$this->cache_uid[$uid] = $user;
+					$user->auth_realm = 'LDAP';
 
-				$user->get_details_from_ldap();
-				$ldap_groups = array_map(function($group) {
-					return $group["cn"];
-				}, $user->ldapgroups);
-				$this->add_user($user);
+					$user->get_details_from_ldap();
+					$ldap_groups = array_map(function($group) {
+						return $group["cn"];
+					}, $user->ldapgroups);
+					$this->add_user($user);
 
-				if($group_sync_enabled == 1) {
-					foreach($ldap_groups as $group) {
-						try {
-							$grp = $group_dir->get_group_by_name($group);
-						} catch(GroupNotFoundException $e) {
-							$grp = new Group;
-							$grp->name = $group;
-							$grp->system = 1;
-							$group_dir->add_group($grp);
+					if($group_sync_enabled == 1) {
+						foreach($ldap_groups as $group) {
+							try {
+								$grp = $group_dir->get_group_by_name($group);
+							} catch(GroupNotFoundException $e) {
+								$grp = new Group;
+								$grp->name = $group;
+								$grp->system = 1;
+								$group_dir->add_group($grp);
+							}
+							$grp->add_member($user);
 						}
-						$grp->add_member($user);
 					}
+				} finally {
+					$active_user = $previous_active_user;
 				}
 			} else {
 				throw new UserNotFoundException('User does not exist.');
