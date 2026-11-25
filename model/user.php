@@ -143,8 +143,9 @@ class User extends Entity {
 				SELECT entity_id
 				FROM group_member
 				WHERE  (`group` IN (
-						SELECT entity_id
+						SELECT server_admin.entity_id
 						FROM server_admin
+						JOIN `group` ON `group`.entity_id = server_admin.entity_id AND `group`.active = 1
 						WHERE server_id = ?)
 					AND entity_id = ?)
 				UNION  (SELECT entity_id

@@ -116,7 +116,9 @@ class ServerDirectory extends DBDirectory {
 				case 'admin':
 					$where[] = "admin_search.entity_id = ".intval($value)." OR admin_search_members.entity_id = ".intval($value);
 					$joins['adminsearch'] = "LEFT JOIN server_admin AS admin_search ON admin_search.server_id = server.id";
-					$joins['adminsearchmembers'] = "LEFT JOIN group_member AS admin_search_members ON admin_search_members.group = admin_search.entity_id";
+					// Members of an admin group count only while the group is active
+					$joins['adminsearchgroup'] = "LEFT JOIN `group` AS admin_search_group ON admin_search_group.entity_id = admin_search.entity_id AND admin_search_group.active = 1";
+					$joins['adminsearchmembers'] = "LEFT JOIN group_member AS admin_search_members ON admin_search_members.group = admin_search_group.entity_id";
 					break;
 				case 'authorization':
 				case 'key_management':
