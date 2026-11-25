@@ -93,6 +93,7 @@ class ServerAccount extends Entity {
 	public function add_admin(User $user) {
 		global $config;
 		parent::add_admin($user);
+		$this->log(array('action' => 'Administrator add', 'value' => "user:{$user->uid}"), LOG_WARNING);
 		$url = $config['web']['baseurl'].'/servers/'.urlencode($this->server->hostname).'/accounts/'.urlencode($this->name);
 		$email = new Email;
 		$email->subject = "Administrator for {$this->name}@{$this->server->hostname}";
@@ -100,7 +101,6 @@ class ServerAccount extends Entity {
 		$email->add_recipient($user->email, $user->name);
 		$email->body = "{$this->active_user->name} ({$this->active_user->uid}) has added you as an administrator for the '{$this->name}' account on {$this->server->hostname}.  You can administer access to this account from <$url>";
 		$email->send();
-		$this->log(array('action' => 'Administrator add', 'value' => "user:{$user->uid}"), LOG_WARNING);
 	}
 
 	/**
@@ -123,6 +123,7 @@ class ServerAccount extends Entity {
 	public function add_public_key(PublicKey $key) {
 		global $config;
 		parent::add_public_key($key);
+		$this->log(array('action' => 'Pubkey add', 'value' => $key->fingerprint_md5), LOG_WARNING);
 		if($this->active_user->uid != 'import-script') {
 			$url = $config['web']['baseurl'].'/pubkeys/'.urlencode($key->id);
 			$email = new Email;
@@ -135,7 +136,6 @@ class ServerAccount extends Entity {
 			$email->body = "A new SSH public key has been added to the account {$this->name}@{$this->server->hostname} on SSH Key Authority. The key was added by {$this->active_user->name} ({$this->active_user->uid}).\n\nIf this key was added without your knowledge, please contact {$config['email']['admin_address']} immediately.\n\n".$key->summarize_key_information();
 			$email->send();
 		}
-		$this->log(array('action' => 'Pubkey add', 'value' => $key->fingerprint_md5), LOG_WARNING);
 	}
 
 	/**
@@ -229,6 +229,26 @@ class ServerAccount extends Entity {
 	public function approve_access_request(AccessRequest $request) {
 		if(is_null($this->entity_id)) throw new BadMethodCallException('Server account must be added to server before access can be approved');
 		$entity = $request->source_entity;
+		// Save the access and close the request first, then log and send the mail. add_access() can
+		// fail after it saved the access (its own mail). Then close the request anyway and report the
+		// error at the end, so that the request never stays open while the access exists.
+		$options = array();
+		$add_error = null;
+		try {
+			$this->add_access($entity, $options);
+		} catch(Throwable $e) {
+			$add_error = $e;
+			$stmt = $this->database->prepare("SELECT COUNT(*) FROM access WHERE dest_entity_id = ? AND source_entity_id = ?");
+			$stmt->bind_param('dd', $this->entity_id, $entity->entity_id);
+			$stmt->execute();
+			$access_saved = $stmt->get_result()->fetch_row()[0] > 0;
+			$stmt->close();
+			if(!$access_saved) throw $e;
+		}
+		$stmt = $this->database->prepare("DELETE FROM access_request WHERE dest_entity_id = ? AND id = ?");
+		$stmt->bind_param('dd', $this->entity_id, $request->id);
+		$stmt->execute();
+		$stmt->close();
 		switch(get_class($entity)) {
 		case 'User':
 			$this->log(array('action' => 'Access approve', 'value' => "user:{$entity->uid}"));
@@ -245,12 +265,7 @@ class ServerAccount extends Entity {
 			$this->log(array('action' => 'Access approve', 'value' => "group:{$entity->name}"));
 			break;
 		}
-		$options = array();
-		$this->add_access($entity, $options);
-		$stmt = $this->database->prepare("DELETE FROM access_request WHERE dest_entity_id = ? AND id = ?");
-		$stmt->bind_param('dd', $this->entity_id, $request->id);
-		$stmt->execute();
-		$stmt->close();
+		if(!is_null($add_error)) throw $add_error;
 	}
 
 	/**
@@ -264,6 +279,17 @@ class ServerAccount extends Entity {
 	public function reject_access_request(AccessRequest $request) {
 		if(is_null($this->entity_id)) throw new BadMethodCallException('Server account must be added to server before access can be rejected');
 		$entity = $request->source_entity;
+		// Close the request first, then log and send the mail
+		$stmt = $this->database->prepare("DELETE FROM access_request WHERE dest_entity_id = ? AND id = ?");
+		$stmt->bind_param('dd', $this->entity_id, $request->id);
+		$stmt->execute();
+		$stmt->close();
+		if($this->sync_status == 'proposed') {
+			if(count($this->list_access_requests()) == 0) {
+				$this->active = 0;
+				$this->update();
+			}
+		}
 		switch(get_class($entity)) {
 		case 'User':
 			$this->log(array('action' => 'Access reject', 'value' => "user:{$entity->uid}"));
@@ -279,16 +305,6 @@ class ServerAccount extends Entity {
 		case 'Group':
 			$this->log(array('action' => 'Access reject', 'value' => "group:{$entity->name}"));
 			break;
-		}
-		$stmt = $this->database->prepare("DELETE FROM access_request WHERE dest_entity_id = ? AND id = ?");
-		$stmt->bind_param('dd', $this->entity_id, $request->id);
-		$stmt->execute();
-		$stmt->close();
-		if($this->sync_status == 'proposed') {
-			if(count($this->list_access_requests()) == 0) {
-				$this->active = 0;
-				$this->update();
-			}
 		}
 	}
 
@@ -311,11 +327,17 @@ class ServerAccount extends Entity {
 			$access->dest_entity_id = $this->entity_id;
 			$access->source_entity_id = $entity->entity_id;
 			$access->granted_by = $this->active_user->entity_id;
+			// Save the rule and its options together: the rule must never exist without its restrictions
+			$this->database->begin_transaction();
 			$stmt = $this->database->prepare("INSERT INTO access SET dest_entity_id = ?, source_entity_id = ?, grant_date = UTC_TIMESTAMP(), granted_by = ?");
 			$stmt->bind_param('ddd', $access->dest_entity_id, $access->source_entity_id, $access->granted_by);
 			$stmt->execute();
 			$access->id = $stmt->insert_id;
 			$stmt->close();
+			foreach($access_options as $access_option) {
+				$access->add_option($access_option);
+			}
+			$this->database->commit();
 			switch(get_class($entity)) {
 			case 'User':
 				$this->log(array('action' => 'Access add', 'value' => "user:{$entity->uid}"), LOG_WARNING);
@@ -352,19 +374,23 @@ class ServerAccount extends Entity {
 				$email->add_cc($config['email']['report_address'], $config['email']['report_name']);
 				$email->subject = $mailsubject;
 				$email->body = $mailbody;
-				$email->send();
 			}
-			foreach($access_options as $access_option) {
-				$access->add_option($access_option);
-			}
-		} catch(mysqli_sql_exception $e) {
-			if($e->getCode() == 1062) {
+		} catch(Throwable $e) {
+			// Also for other errors than mysqli_sql_exception, so that no transaction stays open
+			$this->database->rollback();
+			if($e instanceof mysqli_sql_exception && $e->getCode() == 1062) {
 				// Duplicate entry - ignore
 			} else {
 				throw $e;
 			}
 		}
-		$this->sync_access();
+		// Send the mail last: if it fails, the rule is saved, logged and synced. If the sync
+		// request fails, the mail is still sent, because the rule is saved.
+		try {
+			$this->sync_access();
+		} finally {
+			if(isset($email)) $email->send();
+		}
 	}
 
 	/**

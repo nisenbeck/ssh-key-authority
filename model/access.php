@@ -40,15 +40,26 @@ class Access extends Record {
 	* @param array $options array of AccessOption objects
 	*/
 	public function update_options(array $options) {
-		$stmt = $this->database->query("LOCK TABLES access_option WRITE");
-		$oldoptions = $this->list_options();
-		foreach($oldoptions as $oldoption) {
-			$this->delete_option($oldoption);
+		// One transaction: if an option fails, the rule must keep its old restrictions
+		$this->database->begin_transaction();
+		try {
+			// Lock the rule first, so that two saves at the same time run one after the other
+			$stmt = $this->database->prepare("SELECT id FROM access WHERE id = ? FOR UPDATE");
+			$stmt->bind_param('d', $this->id);
+			$stmt->execute();
+			$stmt->close();
+			$oldoptions = $this->list_options();
+			foreach($oldoptions as $oldoption) {
+				$this->delete_option($oldoption);
+			}
+			foreach($options as $option) {
+				$this->add_option($option);
+			}
+			$this->database->commit();
+		} catch(Throwable $e) {
+			$this->database->rollback();
+			throw $e;
 		}
-		foreach($options as $option) {
-			$this->add_option($option);
-		}
-		$stmt = $this->database->query("UNLOCK TABLES");
 		$this->dest_entity->sync_access();
 	}
 

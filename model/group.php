@@ -67,6 +67,7 @@ class Group extends Entity {
 	public function add_admin(User $user) {
 		global $config;
 		parent::add_admin($user);
+		$this->log(array('action' => 'Administrator add', 'value' => "user:{$user->uid}"), LOG_WARNING);
 		$url = $config['web']['baseurl'].'/groups/'.urlencode($this->name);
 		$email = new Email;
 		$email->subject = "Administrator for {$this->name} group";
@@ -74,7 +75,6 @@ class Group extends Entity {
 		$email->add_recipient($user->email, $user->name);
 		$email->body = "{$this->active_user->name} ({$this->active_user->uid}) has added you as an administrator for the '{$this->name}' group.  You can administer this group from <$url>";
 		$email->send();
-		$this->log(array('action' => 'Administrator add', 'value' => "user:{$user->uid}"), LOG_WARNING);
 	}
 
 	/**
@@ -143,7 +143,6 @@ class Group extends Entity {
 				$email->add_cc($config['email']['report_address'], $config['email']['report_name']);
 				$email->subject = $mailsubject;
 				$email->body = $mailbody;
-				$email->send();
 			}
 		} catch(mysqli_sql_exception $e) {
 			if($e->getCode() == 1062) {
@@ -152,8 +151,14 @@ class Group extends Entity {
 				throw $e;
 			}
 		}
-		$entity->sync_access(); // This entity is now a member of the group, so any access rules that apply to the group now apply to the entity
-		$this->sync_remote_access(); // If this group has access to anything, this entity now also has access to it
+		// Send the mail last: if it fails, the membership is saved, logged and synced. If the sync
+		// request fails, the mail is still sent, because the membership is saved.
+		try {
+			$entity->sync_access(); // This entity is now a member of the group, so any access rules that apply to the group now apply to the entity
+			$this->sync_remote_access(); // If this group has access to anything, this entity now also has access to it
+		} finally {
+			if(isset($email)) $email->send();
+		}
 	}
 
 	/**
@@ -233,11 +238,17 @@ class Group extends Entity {
 		$access->source_entity_id = $entity->entity_id;
 		$access->granted_by = $this->active_user->entity_id;
 		try {
+			// Save the rule and its options together: the rule must never exist without its restrictions
+			$this->database->begin_transaction();
 			$stmt = $this->database->prepare("INSERT INTO access SET dest_entity_id = ?, source_entity_id = ?, grant_date = UTC_TIMESTAMP(), granted_by = ?");
 			$stmt->bind_param('ddd', $access->dest_entity_id, $access->source_entity_id, $access->granted_by);
 			$stmt->execute();
 			$access->id = $stmt->insert_id;
 			$stmt->close();
+			foreach($access_options as $access_option) {
+				$access->add_option($access_option);
+			}
+			$this->database->commit();
 			switch(get_class($entity)) {
 			case 'User':
 				$this->log(array('action' => 'Access add', 'value' => "user:{$entity->uid}"), LOG_WARNING);
@@ -263,19 +274,23 @@ class Group extends Entity {
 				$email->add_cc($config['email']['report_address'], $config['email']['report_name']);
 				$email->subject = $mailsubject;
 				$email->body = $mailbody;
-				$email->send();
 			}
-			foreach($access_options as $access_option) {
-				$access->add_option($access_option);
-			}
-		} catch(mysqli_sql_exception $e) {
-			if($e->getCode() == 1062) {
+		} catch(Throwable $e) {
+			// Also for other errors than mysqli_sql_exception, so that no transaction stays open
+			$this->database->rollback();
+			if($e instanceof mysqli_sql_exception && $e->getCode() == 1062) {
 				// Duplicate entry - ignore
 			} else {
 				throw $e;
 			}
 		}
-		$this->sync_access();
+		// Send the mail last: if it fails, the rule is saved, logged and synced. If the sync
+		// request fails, the mail is still sent, because the rule is saved.
+		try {
+			$this->sync_access();
+		} finally {
+			if(isset($email)) $email->send();
+		}
 	}
 
 	/**

@@ -202,6 +202,7 @@ class User extends Entity {
 	public function add_public_key(PublicKey $key) {
 		global $active_user, $config;
 		parent::add_public_key($key);
+		$this->log(array('action' => 'Pubkey add', 'value' => $key->fingerprint_md5), LOG_WARNING);
 		if($active_user->uid != 'import-script') {
 			$url = $config['web']['baseurl'].'/pubkeys/'.urlencode($key->id);
 			$email = new Email;
@@ -212,7 +213,6 @@ class User extends Entity {
 			$email->body = "A new SSH public key has been added to your account on SSH Key Authority.\n\nIf you added this key then all is well. If you do not recall adding this key, please contact {$config['email']['admin_address']} immediately.\n\n".$key->summarize_key_information();
 			$email->send();
 		}
-		$this->log(array('action' => 'Pubkey add', 'value' => $key->fingerprint_md5), LOG_WARNING);
 	}
 
 	/**

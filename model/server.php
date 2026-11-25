@@ -414,15 +414,26 @@ class Server extends Record {
 	* @param array $options array of ServerLDAPAccessOption objects
 	*/
 	public function update_ldap_access_options(array $options) {
-		$stmt = $this->database->query("LOCK TABLES server_ldap_access_option WRITE");
-		$oldoptions = $this->list_ldap_access_options();
-		foreach($oldoptions as $oldoption) {
-			$this->delete_ldap_access_option($oldoption);
+		// One transaction: if an option fails, the LDAP users keep the old restrictions
+		$this->database->begin_transaction();
+		try {
+			// Lock the server first, so that two saves at the same time run one after the other
+			$stmt = $this->database->prepare("SELECT id FROM server WHERE id = ? FOR UPDATE");
+			$stmt->bind_param('d', $this->id);
+			$stmt->execute();
+			$stmt->close();
+			$oldoptions = $this->list_ldap_access_options();
+			foreach($oldoptions as $oldoption) {
+				$this->delete_ldap_access_option($oldoption);
+			}
+			foreach($options as $option) {
+				$this->add_ldap_access_option($option);
+			}
+			$this->database->commit();
+		} catch(Throwable $e) {
+			$this->database->rollback();
+			throw $e;
 		}
-		foreach($options as $option) {
-			$this->add_ldap_access_option($option);
-		}
-		$stmt = $this->database->query("UNLOCK TABLES");
 		$this->sync_access();
 	}
 
