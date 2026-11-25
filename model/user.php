@@ -329,11 +329,12 @@ class User extends Entity {
 			$this->email = self::ldap_attribute($ldapuser, $config['ldap']['user_email'], '');
 			if(isset($config['ldap']['user_active'])) {
 				$this->active = 0;
-				$active_value = self::ldap_attribute($ldapuser, $config['ldap']['user_active'], null);
+				// Check all values: a marker such as 'former' can be any value of the attribute
+				$active_values = (array)($ldapuser[strtolower($config['ldap']['user_active'])] ?? array());
 				if(isset($config['ldap']['user_active_true'])) {
-					$this->active = intval($active_value == $config['ldap']['user_active_true']);
+					$this->active = intval(in_array($config['ldap']['user_active_true'], $active_values));
 				} elseif(isset($config['ldap']['user_active_false'])) {
-					$this->active = intval($active_value != $config['ldap']['user_active_false']);
+					$this->active = intval(!in_array($config['ldap']['user_active_false'], $active_values));
 				}
 			} else {
 				$this->active = 1;
