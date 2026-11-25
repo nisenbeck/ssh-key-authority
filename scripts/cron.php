@@ -35,12 +35,18 @@ if($ldap_enabled == 1) {
 	}
 }
 
+$errors = 0;
 foreach($servers as $server) {
 	foreach($server->list_accounts() as $account) {
-		deprecate_public_keys($config, $account->list_public_keys(), $account->name . "@" . $server->hostname, $config['email']['admin_address'], $config['email']['admin_name'], $account);
+		// An error with one account (for example a failed mail) must not stop the processing of the users
+		try {
+			deprecate_public_keys($config, $account->list_public_keys(), $account->name . "@" . $server->hostname, $config['email']['admin_address'], $config['email']['admin_name'], $account);
+		} catch(Throwable $e) {
+			fwrite(STDERR, "Error while processing account {$account->name}@{$server->hostname}: {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}\n");
+			$errors++;
+		}
 	}
 }
-$errors = 0;
 foreach($users as $user) {
 	// Process each user separately. An error with one user must not stop
 	// the processing of all other users.
@@ -93,6 +99,8 @@ foreach($users as $user) {
 					}
 				} catch(UserNotFoundException $e) {
 					$user->active = 0;
+					// Save now: a failed mail below must not keep the user active
+					$user->update();
 				}
 				if($active && !$user->active) {
 					// Check for servers that will now be admin-less
@@ -125,7 +133,13 @@ foreach($users as $user) {
 								$email->add_recipient($rcpt->email, $rcpt->name);
 								$email->add_cc($config['email']['report_address'], $config['email']['report_name']);
 							}
-							$email->send();
+							// The mail is not sent again in a later run. Report the server, then continue.
+							try {
+								cron_send_mail($email);
+							} catch(Exception $e) {
+								fwrite(STDERR, "Could not send the mail about the orphaned server {$server->hostname}: {$e->getMessage()}\n");
+								$errors++;
+							}
 						}
 					}
 				}
@@ -137,6 +151,8 @@ foreach($users as $user) {
 				}
 			} else {
 				$user->active = 0;
+				// Save now: a failed mail below must not keep the user active
+				$user->update();
 			}
 		}
 		deprecate_public_keys($config, $user->list_public_keys(), $user->uid, $user->email, $user->name, $user);
@@ -150,6 +166,25 @@ foreach($users as $user) {
 	}
 }
 if($errors > 0) exit(1);
+
+/**
+* Send a mail. When the SMTP server is not available, do not try more mails in this run: each
+* attempt can wait for the SMTP timeout, and the processing of the other users must not wait for
+* that. The next run tries the mails again that were not sent.
+* @param Email $email mail to send
+* @throws Exception if the mail was not sent
+*/
+function cron_send_mail($email) {
+	global $smtp_unavailable;
+	if(!empty($smtp_unavailable)) throw new RuntimeException('not sent, because the SMTP server was not available earlier in this run');
+	try {
+		$email->send();
+	} catch(Exception $e) {
+		// Only a connection error stops the other mails. A refused recipient affects only this mail.
+		if(strpos($e->getMessage(), 'Could not connect to SMTP host') !== false) $smtp_unavailable = true;
+		throw $e;
+	}
+}
 
 function deprecate_public_keys($config, $public_keys, $entity_identifier, $recipient_mail, $recipient_name, $entity) {
 	if($config['general']['key_expiration_enabled'] == 1) {
@@ -171,7 +206,16 @@ function deprecate_public_keys($config, $public_keys, $entity_identifier, $recip
 					$email->subject = $entity_identifier . ": Public key expires in " . $expiration_time_in_days . " days";
 					$email->body = "Public key will expire soon. Expired keys are removed immediately and will not be usable anymore.";
 				}
-				$email->send();
+				// A failed mail must not stop the removal of the other expired keys
+				if(!empty($recipient_mail)) {
+					try {
+						cron_send_mail($email);
+					} catch(Exception $e) {
+						global $errors;
+						fwrite(STDERR, "Could not send the key expiry mail for {$entity_identifier}: {$e->getMessage()}\n");
+						$errors++;
+					}
+				}
 			}
 		}
 	}

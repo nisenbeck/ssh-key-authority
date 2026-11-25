@@ -342,14 +342,19 @@ class User extends Entity {
 			if($this->force_disable) $this->active = 0;
 			$this->admin = 0;
 			$group_member = self::ldap_attribute($ldapuser, $config['ldap']['group_member_value'], null);
-			// Do not continue without group membership data. An empty group list would
-			// remove the user from all groups when full_group_sync is enabled.
-			if(is_null($group_member)) {
+			if(!is_null($group_member)) {
+				$this->ldapgroups = $this->ldap->search($config['ldap']['dn_group'], LDAP::escape($config['ldap']['group_member']).'='.LDAP::escape($group_member), array('cn'));
+				foreach($this->ldapgroups as $ldapgroup) {
+					if($ldapgroup['cn'] == $config['ldap']['admin_group_cn']) $this->admin = 1;
+				}
+			} elseif(!$this->active) {
+				// Do not stop for an inactive user, so that the deactivation is saved. The user
+				// gets no keys, so the group memberships are not necessary.
+				$this->ldapgroups = array();
+			} else {
+				// Do not continue without group membership data. An empty group list would
+				// remove the user from all groups when full_group_sync is enabled.
 				throw new RuntimeException("LDAP attribute {$config['ldap']['group_member_value']} is missing for user {$this->uid}");
-			}
-			$this->ldapgroups = $this->ldap->search($config['ldap']['dn_group'], LDAP::escape($config['ldap']['group_member']).'='.LDAP::escape($group_member), array('cn'));
-			foreach($this->ldapgroups as $ldapgroup) {
-				if($ldapgroup['cn'] == $config['ldap']['admin_group_cn']) $this->admin = 1;
 			}
 		} else {
 			throw new UserNotFoundException('User does not exist.');
