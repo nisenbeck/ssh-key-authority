@@ -344,7 +344,8 @@ process_host() {
 				keys-sync) continue ;;
 			esac
 			if [ ! -f "$host_dir/$remote_file" ]; then
-				if ssh "${ssh_opts[@]}" "$REMOTE_USER@$hostname" "rm -f -- $(printf '%q' "$keydir/$remote_file")"; then
+				# -n: ssh must not read the rest of the file list on stdin of this loop
+				if ssh -n "${ssh_opts[@]}" "$REMOTE_USER@$hostname" "rm -f -- $(printf '%q' "$keydir/$remote_file")"; then
 					log "$hostname: pruned stale remote file '$remote_file'"
 				else
 					prune_failed=1
