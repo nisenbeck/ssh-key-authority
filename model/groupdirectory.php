@@ -180,6 +180,34 @@ class GroupDirectory extends DBDirectory {
 		$stmt->close();
 		return $groups;
 	}
+
+	/**
+	* List all active groups that the given entity is a member of, directly or through other active
+	* groups. A group that the entity reaches only through an inactive group is not in the list.
+	* @param Entity $entity to find in group memberships
+	* @param array $groups map of entity ID => Group, used for the recursion
+	* @return array of Group objects
+	*/
+	public function list_active_group_membership(Entity $entity, &$groups = array()) {
+		$stmt = $this->database->prepare("
+			SELECT `group`.*
+			FROM group_member
+			INNER JOIN `group` ON `group`.entity_id = group_member.group
+			WHERE group_member.entity_id = ? AND `group`.active = 1
+			ORDER BY `group`.name
+		");
+		$stmt->bind_param('d', $entity->entity_id);
+		$stmt->execute();
+		$rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+		$stmt->close();
+		foreach($rows as $row) {
+			if(isset($groups[$row['entity_id']])) continue;
+			$group = new Group($row['entity_id'], $row);
+			$groups[$row['entity_id']] = $group;
+			$this->list_active_group_membership($group, $groups);
+		}
+		return array_values($groups);
+	}
 }
 
 class GroupNotFoundException extends Exception {}
