@@ -286,13 +286,14 @@ class Server extends Record {
 	* Create a new account on the server.
 	* Reactivates an existing account if one exists with the same name.
 	* @param ServerAccount $account to be added
-	* @throws AccountNameInvalid if account name is empty
+	* @throws AccountNameInvalid if account name is empty, begins with . or contains / or control characters
 	*/
 	public function add_account(ServerAccount &$account) {
 		if(is_null($this->id)) throw new BadMethodCallException('Server must be in directory before accounts can be added');
 		$account_name = $account->name;
 		if($account_name === '') throw new AccountNameInvalid('Account name cannot be empty');
 		if(substr($account_name, 0, 1) === '.') throw new AccountNameInvalid('Account name cannot begin with .');
+		if(preg_match('/[\/\x00-\x1F\x7F]/', $account_name)) throw new AccountNameInvalid('Account name cannot contain / or control characters');
 		$sync_status = is_null($account->sync_status) ? 'not synced yet' : $account->sync_status;
 		$this->database->begin_transaction();
 		$stmt = $this->database->prepare("INSERT INTO entity SET type = 'server account'");

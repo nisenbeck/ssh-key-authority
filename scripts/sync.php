@@ -204,6 +204,16 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 		}
 		return;
 	}
+	// build_server_keyfiles() skips accounts with '/' in the name. Report them before the
+	// first possible return, so that they never keep an old 'sync success'.
+	$skipped_accounts = 0;
+	foreach($server->list_accounts() as $account) {
+		if(strpos($account->name, '/') === false || $account->sync_status == 'proposed') continue;
+		if(!is_null($only_username) && $account->name != $only_username) continue;
+		echo date('c')." {$hostname}: Skipped account with '/' in the name: {$account->name}\n";
+		$account->sync_report('sync failure');
+		$skipped_accounts++;
+	}
 	// IP address check
 	if(!isset($config['security']) || !isset($config['security']['disable_ip_collision_protection']) || $config['security']['disable_ip_collision_protection'] != 1) {
 		echo date('c')." {$hostname}: Checking IP address {$server->ip_address}.\n";
@@ -397,7 +407,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 	// cause a partial sync
 	pcntl_signal(SIGTERM, SIG_IGN);
 
-	$account_errors = 0;
+	$account_errors = $skipped_accounts;
 	$cleanup_errors = 0;
 
 	if(isset($config['security']) && isset($config['security']['hostname_verification']) && $config['security']['hostname_verification'] >= 1) {

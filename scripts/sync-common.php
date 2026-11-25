@@ -96,6 +96,9 @@ function build_server_keyfiles($server, $only_username = null) {
 	// Generate keyfiles for each account
 	foreach($accounts as $account) {
 		if($account->active == 0 || $account->sync_status == 'proposed') continue;
+		// '/' is not valid in a user name. Without this check, 'root/' would overwrite the keyfile of 'root'.
+		// sync.php reports these accounts as failed
+		if(strpos($account->name, '/') !== false) continue;
 		$username = str_replace('/', '', $account->name);
 		$keyfile = sprintf($header, "account '".comment_text($account->name)."'", $config['web']['baseurl']."/servers/".urlencode($hostname)."/accounts/".urlencode($account->name));
 		// Collect a set of all groups that the account is a member of (directly or indirectly) and the account itself.
