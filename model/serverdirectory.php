@@ -110,6 +110,7 @@ class ServerDirectory extends DBDirectory {
 					break;
 				case 'port':
 				case 'ip_address':
+				case 'fixed_ip_address':
 				case 'rsa_key_fingerprint':
 					$where[] = "server.$field = '".$this->database->escape_string($value)."'";
 					break;

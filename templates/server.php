@@ -414,6 +414,7 @@
 				</dd>
 				<?php } ?>
 			</dl>
+			<?php if($this->get('server_admin')) { ?>
 			<?php if($this->get('server_admin_can_reset_host_key')) { ?>
 			<div class="form-group">
 				<label for="rsa_key_fingerprint" class="col-sm-2 control-label">Host key fingerprint</label>
@@ -431,6 +432,22 @@
 				</div>
 				<div class="col-sm-6">
 					<button type="button" class="btn btn-default" data-clear="ip_address">Clear</button>
+				</div>
+			</div>
+			<?php } ?>
+			<?php $fixed_ip_locked = !$this->get('server_admin_can_reset_host_key') && is_null($this->get('server')->rsa_key_fingerprint); ?>
+			<div class="form-group">
+				<label for="fixed_ip_address" class="col-sm-2 control-label">Fixed IP address</label>
+				<div class="col-sm-4">
+					<input type="text" id="fixed_ip_address" name="fixed_ip_address" value="<?php out($this->get('server')->fixed_ip_address)?>"<?php if($fixed_ip_locked) out(' readonly') ?> class="form-control">
+				</div>
+				<div class="col-sm-6">
+					<?php if($fixed_ip_locked) { ?>
+					<button type="button" class="btn btn-default" data-clear="fixed_ip_address">Clear</button>
+					<p class="help-block">The server has no stored host key yet. Only an SKA admin can set its IP address. You can clear it to resolve the hostname again.</p>
+					<?php } else { ?>
+					<p class="help-block">Optional. If set, SSH Key Authority connects to this address and does not resolve the hostname. The host must have the stored host key.</p>
+					<?php } ?>
 				</div>
 			</div>
 			<div class="form-group">

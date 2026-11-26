@@ -58,6 +58,40 @@ class Server extends Record {
 	}
 
 	/**
+	* Set the fixed IP address. sync.php connects to this address and does not resolve the hostname.
+	* The change is saved by update().
+	* @param string $address IPv4 or IPv6 address, or '' to resolve the hostname again
+	* @throws InvalidArgumentException if the address is not valid or another server uses it
+	*/
+	public function set_fixed_ip_address($address) {
+		global $config, $server_dir;
+		$address = trim($address);
+		if($address === '') {
+			$this->fixed_ip_address = null;
+			return;
+		}
+		if(filter_var($address, FILTER_VALIDATE_IP) === false) {
+			throw new InvalidArgumentException('The fixed IP address is not a valid IPv4 or IPv6 address.');
+		}
+		// One spelling for each IPv6 address, so that the IP collision check finds it
+		$address = inet_ntop(inet_pton($address));
+		// Refuse the address of another server. Else the IP collision check in sync.php would stop
+		// the syncs of that server too. Check only a new address, so that the other settings can
+		// still be saved when another server got this address later. Check also the fixed IP
+		// address of the other servers, because their ip_address changes only at their next sync.
+		if($address !== $this->fixed_ip_address && empty($config['security']['disable_ip_collision_protection'])) {
+			foreach(array('ip_address', 'fixed_ip_address') as $field) {
+				$query = array($field => $address, 'key_management' => array('keys'));
+				if(!empty($config['security']['allow_different_ports_on_single_ip'])) $query['port'] = $this->port;
+				foreach($server_dir->list_servers(array(), $query) as $other) {
+					if($other->id != $this->id) throw new InvalidArgumentException('Another server already uses this IP address.');
+				}
+			}
+		}
+		$this->fixed_ip_address = $address;
+	}
+
+	/**
 	* List all log events for this server.
 	* @return array of ServerEvent objects
 	*/

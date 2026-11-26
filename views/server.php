@@ -73,17 +73,22 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 	redirect('#accounts');
 } elseif(isset($_POST['edit_server']) && $active_user->admin) {
 	$hostname = trim($_POST['hostname']);
-	$fixed_ip_address = trim($_POST['fixed_ip_address'] ?? '');
 	if(!preg_match('|.*\..*\..*|', $hostname) || preg_match('/[\x00-\x1F\x7F]/', $hostname)) {
 		$content = new PageSection('invalid_hostname');
 		$content->set('hostname', $hostname);
-	} elseif($fixed_ip_address !== '' && filter_var($fixed_ip_address, FILTER_VALIDATE_IP) === false) {
-		$alert = new UserAlert;
-		$alert->content = 'The fixed IP address is not a valid IPv4 or IPv6 address. The settings were not saved.';
-		$alert->class = 'danger';
-		$active_user->add_alert($alert);
-		redirect('#settings');
 	} else {
+		// Check the fixed IP address before update_ldap_access_options() saves anything.
+		// The check of another server with the same IP address uses the new port.
+		$server->port = $_POST['port'];
+		try {
+			$server->set_fixed_ip_address($_POST['fixed_ip_address'] ?? '');
+		} catch(InvalidArgumentException $e) {
+			$alert = new UserAlert;
+			$alert->content = $e->getMessage().' The settings were not saved.';
+			$alert->class = 'danger';
+			$active_user->add_alert($alert);
+			redirect('#settings');
+		}
 		$options = array();
 		if(isset($_POST['access_option'])) {
 			foreach($_POST['access_option'] as $k => $v) {
@@ -101,11 +106,8 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 		}
 		$server->update_ldap_access_options($options);
 		$server->hostname = $hostname;
-		$server->port = $_POST['port'];
 		if($_POST['rsa_key_fingerprint'] == '') $server->rsa_key_fingerprint = null;
 		if($_POST['ip_address'] == '') $server->ip_address = null;
-		// inet_ntop(inet_pton()) gives one spelling for each IPv6 address, for the IP collision check
-		$server->fixed_ip_address = ($fixed_ip_address === '' ? null : inet_ntop(inet_pton($fixed_ip_address)));
 		$server->key_management = $_POST['key_management'];
 		$server->authorization = $_POST['authorization'];
 		try {
@@ -119,9 +121,27 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 			$content->set('exception', $e);
 		}
 	}
-} elseif(isset($_POST['edit_server']) && $server_admin && $server_admin_can_reset_host_key) {
-	if($_POST['rsa_key_fingerprint'] == '') $server->rsa_key_fingerprint = null;
-	if($_POST['ip_address'] == '') $server->ip_address = null;
+} elseif(isset($_POST['edit_server']) && $server_admin) {
+	$old_fixed_ip_address = $server->fixed_ip_address;
+	try {
+		$server->set_fixed_ip_address($_POST['fixed_ip_address'] ?? '');
+		// Without a stored host key, the next sync stores the key of any host at the new address.
+		// Only SKA admins can choose a host like this (as for the reset of the host key).
+		if(!$server_admin_can_reset_host_key && is_null($server->rsa_key_fingerprint)
+		&& !is_null($server->fixed_ip_address) && $server->fixed_ip_address !== $old_fixed_ip_address) {
+			throw new InvalidArgumentException('The server has no stored host key yet. Only an SKA admin can set its IP address.');
+		}
+	} catch(InvalidArgumentException $e) {
+		$alert = new UserAlert;
+		$alert->content = $e->getMessage().' The settings were not saved.';
+		$alert->class = 'danger';
+		$active_user->add_alert($alert);
+		redirect('#settings');
+	}
+	if($server_admin_can_reset_host_key) {
+		if($_POST['rsa_key_fingerprint'] == '') $server->rsa_key_fingerprint = null;
+		if($_POST['ip_address'] == '') $server->ip_address = null;
+	}
 	$server->update();
 	redirect('#settings');
 } elseif(isset($_POST['request_access'])) {
