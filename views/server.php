@@ -73,9 +73,16 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 	redirect('#accounts');
 } elseif(isset($_POST['edit_server']) && $active_user->admin) {
 	$hostname = trim($_POST['hostname']);
+	$fixed_ip_address = trim($_POST['fixed_ip_address'] ?? '');
 	if(!preg_match('|.*\..*\..*|', $hostname) || preg_match('/[\x00-\x1F\x7F]/', $hostname)) {
 		$content = new PageSection('invalid_hostname');
 		$content->set('hostname', $hostname);
+	} elseif($fixed_ip_address !== '' && filter_var($fixed_ip_address, FILTER_VALIDATE_IP) === false) {
+		$alert = new UserAlert;
+		$alert->content = 'The fixed IP address is not a valid IPv4 or IPv6 address. The settings were not saved.';
+		$alert->class = 'danger';
+		$active_user->add_alert($alert);
+		redirect('#settings');
 	} else {
 		$options = array();
 		if(isset($_POST['access_option'])) {
@@ -97,6 +104,8 @@ if(isset($_POST['sync']) && ($server_admin || $active_user->admin)) {
 		$server->port = $_POST['port'];
 		if($_POST['rsa_key_fingerprint'] == '') $server->rsa_key_fingerprint = null;
 		if($_POST['ip_address'] == '') $server->ip_address = null;
+		// inet_ntop(inet_pton()) gives one spelling for each IPv6 address, for the IP collision check
+		$server->fixed_ip_address = ($fixed_ip_address === '' ? null : inet_ntop(inet_pton($fixed_ip_address)));
 		$server->key_management = $_POST['key_management'];
 		$server->authorization = $_POST['authorization'];
 		try {

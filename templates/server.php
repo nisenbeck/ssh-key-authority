@@ -271,6 +271,15 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<label for="fixed_ip_address" class="col-sm-2 control-label">Fixed IP address</label>
+				<div class="col-sm-5">
+					<input type="text" id="fixed_ip_address" name="fixed_ip_address" value="<?php out($this->get('server')->fixed_ip_address)?>" class="form-control">
+				</div>
+				<div class="col-sm-5">
+					<p class="help-block">Optional. If set, SSH Key Authority connects to this address and does not resolve the hostname.</p>
+				</div>
+			</div>
+			<div class="form-group">
 				<label class="col-sm-2 control-label">Key management</label>
 				<div class="col-sm-10">
 					<div class="radio">

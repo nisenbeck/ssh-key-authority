@@ -211,7 +211,15 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 	$server = $server_dir->get_server_by_id($id);
 	$hostname = $server->hostname;
 	echo date('c')." {$hostname}: Preparing sync.\n";
-	$server->ip_address = gethostbyname($hostname);
+	if(is_null($server->fixed_ip_address)) {
+		$server->ip_address = gethostbyname($hostname);
+		$connect_host = $hostname;
+	} else {
+		// The admin set the address, because the hostname cannot be resolved
+		$server->ip_address = $server->fixed_ip_address;
+		// fsockopen() needs brackets around an IPv6 address
+		$connect_host = (strpos($server->fixed_ip_address, ':') === false ? $server->fixed_ip_address : '['.$server->fixed_ip_address.']');
+	}
 	$server->update();
 	if($server->key_management != 'keys') return;
 	$sync_warning = false;
@@ -291,7 +299,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 	$legacy = false;
 	$sftp = null;
 	try {
-		$ssh_check = new SSH2($hostname, $server->port);
+		$ssh_check = new SSH2($connect_host, $server->port);
 		$ssh_check->setTimeout(60);
 
 		// Verifying Host Key
@@ -357,7 +365,7 @@ function sync_server($id, $only_username = null, $preview = false, $no_password 
 	$attempts = array('keys-sync', 'root');
 	foreach($attempts as $attempt) {
 		try {
-			$sftp = new SFTP($hostname, $server->port);
+			$sftp = new SFTP($connect_host, $server->port);
 			$sftp->enableQuietMode();
 			$sftp->setTimeout(60);
 

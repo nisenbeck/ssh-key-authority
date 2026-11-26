@@ -43,6 +43,7 @@ class Server extends Record {
 			case 'key_management':
 			case 'authorization':
 			case 'custom_keys':
+			case 'fixed_ip_address':
 				$resync = true;
 				break;
 			case 'rsa_key_fingerprint':
