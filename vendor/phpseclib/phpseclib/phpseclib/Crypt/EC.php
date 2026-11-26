@@ -371,6 +371,11 @@ abstract class EC extends AsymmetricKey
             return $new;
         }
 
+        // SEC1 3.2.2: a public key is not the point at infinity, which the encoding 00 stands for
+        if (isset($components['QA']) && !count($components['QA'])) {
+            throw new \UnexpectedValueException('The public key is the point at infinity');
+        }
+
         $new = isset($components['dA']) ?
             new PrivateKey() :
             new PublicKey();
@@ -542,7 +547,7 @@ abstract class EC extends AsymmetricKey
     /**
      * Determines the signature padding mode
      *
-     * Valid values are: ASN1, SSH2, Raw
+     * Valid values are: ASN1, IEEE, SSH2, Raw
      *
      * @param string $format
      */
